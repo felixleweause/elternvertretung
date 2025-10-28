@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import {
+  isReminderColumnMissing,
+  logReminderColumnWarning,
+} from "@/lib/supabase/reminder-support";
 
 type Params = {
   params: {
@@ -25,7 +29,7 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { data: event, error } = await supabase
+  const { data: initialEvent, error } = await supabase
     .from("events")
     .select(
       `
@@ -49,10 +53,46 @@ export async function GET(_request: Request, { params }: Params) {
     )
     .eq("id", id)
     .maybeSingle();
+  let event = initialEvent;
 
   if (error) {
-    console.error("Failed to load event for ICS export", error);
-    return NextResponse.json({ error: "event_not_found" }, { status: 404 });
+    if (isReminderColumnMissing(error)) {
+      logReminderColumnWarning("ics export fetch");
+      const fallback = await supabase
+        .from("events")
+        .select(
+          `
+            id,
+            title,
+            description,
+            start_at,
+            end_at,
+            location,
+            scope_type,
+            scope_id,
+            created_at,
+            profiles (
+              id,
+              name,
+              email
+            )
+          `
+        )
+        .eq("id", id)
+        .maybeSingle();
+
+      if (fallback.error) {
+        console.error("Failed to load event for ICS export", fallback.error);
+        return NextResponse.json({ error: "event_not_found" }, { status: 404 });
+      }
+
+      event = fallback.data
+        ? ({ ...fallback.data, remind_24h: false, remind_2h: false } as typeof initialEvent)
+        : null;
+    } else {
+      console.error("Failed to load event for ICS export", error);
+      return NextResponse.json({ error: "event_not_found" }, { status: 404 });
+    }
   }
 
   if (!event) {

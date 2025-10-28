@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
+import {
+  isReminderColumnMissing,
+  logReminderColumnWarning,
+} from "@/lib/supabase/reminder-support";
 import { EventComposer } from "@/components/events/event-composer";
 import { EventList } from "@/components/events/event-list";
 import type {
@@ -41,16 +45,10 @@ export default async function EventsPage() {
   windowStartDate.setDate(windowStartDate.getDate() - 14);
   const windowStart = windowStartDate.toISOString();
 
-  const [mandatesResponse, eventsResponse, rsvpResponse] = await Promise.all([
-    supabase
-      .from("mandates")
-      .select("scope_type, scope_id, role, status")
-      .eq("user_id", user.id)
-      .eq("status", "active"),
-    supabase
-      .from("events")
-      .select(
-        `
+  const eventsSelection = supabase
+    .from("events")
+    .select(
+      `
           id,
           school_id,
           scope_type,
@@ -69,17 +67,70 @@ export default async function EventsPage() {
             email
           )
         `
-      )
-      .gte("start_at", windowStart)
-      .order("start_at", { ascending: true })
-      .limit(50),
+    )
+    .gte("start_at", windowStart)
+    .order("start_at", { ascending: true })
+    .limit(50);
+
+  const [mandatesResponse, eventsResponse, rsvpResponse] = await Promise.all([
+    supabase
+      .from("mandates")
+      .select("scope_type, scope_id, role, status")
+      .eq("user_id", user.id)
+      .eq("status", "active"),
+    eventsSelection,
     supabase
       .from("rsvps")
       .select("event_id, status")
       .eq("user_id", user.id),
   ]);
 
-  const eventsData = eventsResponse.data ?? [];
+  let remindersAvailable = true;
+
+  if (eventsResponse.error) {
+    if (isReminderColumnMissing(eventsResponse.error)) {
+      remindersAvailable = false;
+      logReminderColumnWarning("list fetch");
+    } else {
+      console.error("Failed to load events", eventsResponse.error);
+    }
+  }
+
+  let eventsData = eventsResponse.data ?? [];
+
+  if (!remindersAvailable) {
+    const fallback = await supabase
+      .from("events")
+      .select(
+        `
+          id,
+          school_id,
+          scope_type,
+          scope_id,
+          title,
+          description,
+          start_at,
+          end_at,
+          location,
+          created_at,
+          profiles (
+            id,
+            name,
+            email
+          )
+        `
+      )
+      .gte("start_at", windowStart)
+      .order("start_at", { ascending: true })
+      .limit(50);
+
+    if (fallback.error) {
+      console.error("Failed to load events without reminder columns", fallback.error);
+    }
+
+    eventsData = fallback.data ?? [];
+  }
+
   const rsvpData = rsvpResponse.data ?? [];
 
   const classIds = Array.from(
@@ -163,7 +214,10 @@ export default async function EventsPage() {
       </header>
 
       {composerScopes.length > 0 ? (
-        <EventComposer scopes={composerScopes} />
+        <EventComposer
+          scopes={composerScopes}
+          remindersAvailable={remindersAvailable}
+        />
       ) : null}
 
       <section className="flex flex-col gap-4">

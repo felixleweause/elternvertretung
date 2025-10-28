@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import {
+  isReminderColumnMissing,
+  logReminderColumnWarning,
+} from "@/lib/supabase/reminder-support";
 
 type Params = {
   params: {
@@ -55,6 +59,16 @@ export async function PATCH(request: Request, { params }: Params) {
     .maybeSingle();
 
   if (error) {
+    if (isReminderColumnMissing(error)) {
+      logReminderColumnWarning("event update");
+      return NextResponse.json(
+        {
+          error:
+            "Erinnerungen sind für diese Instanz noch nicht aktiviert. Bitte aktualisiere das Supabase-Schema.",
+        },
+        { status: 409 }
+      );
+    }
     console.error("Failed to update event", error);
     return NextResponse.json(
       { error: error.message ?? "update_failed" },

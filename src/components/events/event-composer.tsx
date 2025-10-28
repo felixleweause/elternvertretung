@@ -9,6 +9,7 @@ import type { EventScopeOption } from "./types";
 
 type EventComposerProps = {
   scopes: EventScopeOption[];
+  remindersAvailable?: boolean;
 };
 
 type ComposerState = {
@@ -36,7 +37,10 @@ function decodeScope(value: string): EventScopeOption | null {
   return null;
 }
 
-export function EventComposer({ scopes }: EventComposerProps) {
+export function EventComposer({
+  scopes,
+  remindersAvailable = true,
+}: EventComposerProps) {
   const router = useRouter();
   const [scopeValue, setScopeValue] = useState(
     scopes.length > 0 ? encodeScope(scopes[0]) : ""
@@ -93,7 +97,10 @@ export function EventComposer({ scopes }: EventComposerProps) {
       return;
     }
 
-    const payload = {
+    const payload: Record<string, unknown> & {
+      remind_24h?: boolean;
+      remind_2h?: boolean;
+    } = {
       title: title.trim(),
       description: description.trim() || null,
       scope_type: decodedScope.scopeType,
@@ -101,9 +108,12 @@ export function EventComposer({ scopes }: EventComposerProps) {
       start_at: new Date(startAt).toISOString(),
       end_at: endAt ? new Date(endAt).toISOString() : null,
       location: location.trim() || null,
-      remind_24h: remind24h,
-      remind_2h: remind2h,
     };
+
+    if (remindersAvailable) {
+      payload.remind_24h = remind24h;
+      payload.remind_2h = remind2h;
+    }
 
     startTransition(async () => {
       try {
@@ -262,28 +272,38 @@ export function EventComposer({ scopes }: EventComposerProps) {
           />
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900/60 md:flex-row md:items-center md:justify-between">
-          <label className="flex items-center gap-2 font-medium text-zinc-700 dark:text-zinc-200">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-zinc-900 dark:accent-zinc-300"
-              checked={remind24h}
-              onChange={(event) => setRemind24h(event.target.checked)}
-              disabled={isPending}
-            />
-            Erinnerung 24 Stunden vorher senden
-          </label>
-          <label className="flex items-center gap-2 font-medium text-zinc-700 dark:text-zinc-200">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-zinc-900 dark:accent-zinc-300"
-              checked={remind2h}
-              onChange={(event) => setRemind2h(event.target.checked)}
-              disabled={isPending}
-            />
-            Erinnerung 2 Stunden vorher
-          </label>
-        </div>
+        {remindersAvailable ? (
+          <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900/60 md:flex-row md:items-center md:justify-between">
+            <label className="flex items-center gap-2 font-medium text-zinc-700 dark:text-zinc-200">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-zinc-900 dark:accent-zinc-300"
+                checked={remind24h}
+                onChange={(event) => setRemind24h(event.target.checked)}
+                disabled={isPending}
+              />
+              Erinnerung 24 Stunden vorher senden
+            </label>
+            <label className="flex items-center gap-2 font-medium text-zinc-700 dark:text-zinc-200">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-zinc-900 dark:accent-zinc-300"
+                checked={remind2h}
+                onChange={(event) => setRemind2h(event.target.checked)}
+                disabled={isPending}
+              />
+              Erinnerung 2 Stunden vorher
+            </label>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+            Erinnerungsschalter sind vorübergehend deaktiviert. Bitte führe die Migration
+            <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs dark:bg-amber-900/60">
+              20240704160000_events_feature
+            </code>
+            auf deinem Supabase-Projekt aus, um Erinnerungen wieder zu aktivieren.
+          </div>
+        )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">

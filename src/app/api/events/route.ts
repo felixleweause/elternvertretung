@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import {
+  isReminderColumnMissing,
+  logReminderColumnWarning,
+} from "@/lib/supabase/reminder-support";
 
 type EventPayload = {
   title?: string;
@@ -90,19 +94,32 @@ export async function POST(request: Request) {
     remind_2h,
   };
 
-  const { data, error } = await supabase
+  let insertResult = await supabase
     .from("events")
     .insert(insertedPayload)
     .select("id")
     .maybeSingle();
 
-  if (error) {
-    console.error("Failed to create event", error);
+  if (insertResult.error && isReminderColumnMissing(insertResult.error)) {
+    logReminderColumnWarning("event insert");
+    const { remind_24h: _ignore24h, remind_2h: _ignore2h, ...fallbackPayload } =
+      insertedPayload;
+    insertResult = await supabase
+      .from("events")
+      .insert(fallbackPayload)
+      .select("id")
+      .maybeSingle();
+  }
+
+  if (insertResult.error) {
+    console.error("Failed to create event", insertResult.error);
     return NextResponse.json(
-      { error: error.message ?? "insert_failed" },
+      { error: insertResult.error.message ?? "insert_failed" },
       { status: 400 }
     );
   }
+
+  const data = insertResult.data;
 
   return NextResponse.json({ data }, { status: 200 });
 }

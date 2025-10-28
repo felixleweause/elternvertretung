@@ -1,6 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase/server";
+import {
+  isReminderColumnMissing,
+  logReminderColumnWarning,
+} from "@/lib/supabase/reminder-support";
 import { Button } from "@/components/ui/button";
 import { EventRsvpChips } from "@/components/events/event-rsvp-chips";
 import { EventReminderToggle } from "@/components/events/event-reminder-toggle";
@@ -38,7 +42,10 @@ export default async function EventDetailPage({ params }: PageParams) {
     redirect("/login");
   }
 
-  const { data: eventRecord, error: eventError } = await supabase
+  const {
+    data: initialEventRecord,
+    error: eventError,
+  } = await supabase
     .from("events")
     .select(
       `
@@ -65,8 +72,55 @@ export default async function EventDetailPage({ params }: PageParams) {
     .eq("id", id)
     .maybeSingle();
 
+  let remindersAvailable = true;
+  let eventRecord = initialEventRecord;
+
   if (eventError) {
-    console.error("Failed to load event detail", eventError);
+    if (isReminderColumnMissing(eventError)) {
+      remindersAvailable = false;
+      logReminderColumnWarning("event detail fetch");
+      const fallback = await supabase
+        .from("events")
+        .select(
+          `
+            id,
+            school_id,
+            scope_type,
+            scope_id,
+            title,
+            description,
+            start_at,
+            end_at,
+            location,
+            created_at,
+            created_by,
+            profiles (
+              id,
+              name,
+              email
+            )
+          `
+        )
+        .eq("id", id)
+        .maybeSingle();
+
+      if (fallback.error) {
+        console.error(
+          "Failed to load event detail without reminder columns",
+          fallback.error
+        );
+      }
+
+      eventRecord = fallback.data
+        ? ({
+            ...fallback.data,
+            remind_24h: false,
+            remind_2h: false,
+          } as typeof eventRecord)
+        : null;
+    } else {
+      console.error("Failed to load event detail", eventError);
+    }
   }
 
   if (!eventRecord) {
@@ -214,11 +268,22 @@ export default async function EventDetailPage({ params }: PageParams) {
           </div>
 
           {event.canManage ? (
-            <EventReminderToggle
-              eventId={event.id}
-              initial24h={event.remind24h}
-              initial2h={event.remind2h}
-            />
+            remindersAvailable ? (
+              <EventReminderToggle
+                eventId={event.id}
+                initial24h={event.remind24h}
+                initial2h={event.remind2h}
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+                Erinnerungsschalter sind deaktiviert, da die Datenbankspalten fehlen. Bitte
+                führe die Migration
+                <code className="mx-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs dark:bg-amber-900/60">
+                  20240704160000_events_feature
+                </code>
+                auf deinem Supabase-Projekt aus.
+              </div>
+            )
           ) : null}
 
           {event.canManage && event.attendeeCount ? (
