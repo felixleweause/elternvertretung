@@ -2,16 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
 const VALID_STATUSES = new Set(["yes", "no", "maybe"]);
 
-export async function POST(request: Request, { params }: Params) {
-  const { id } = params;
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }

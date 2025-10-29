@@ -109,23 +109,24 @@ Tenant: `school_id` (Subdomain).
 **Backend:** `announcements`, `read_receipts`, optionale `comments`, Attachments (signed URLs), optional Digest.
 **AK:** Lesestatus sichtbar; Kommentare per Post an/aus; Anhänge laden.
 
-## 6) `feat:events + UI + backend`
+## 6) `feat:events + UI + backend`✅
 
 **UI:** Eventliste, Formular, Detail mit RSVP-Chips, `.ics`-Download, Reminder-Switch.
 **Backend:** `events`, `rsvps`, iCal-Export (Server Action), Reminder (T-24h/T-2h).
 **AK:** RSVP live; iCal Download; Reminder versendet.
 
-## 7) `feat:agenda-protocol + UI + backend`
+## 7) `feat:agenda-protocol + UI + backend` ✅
 
 **UI:** Event-Tab „Agenda/Protokoll“: Editor, Zeitstempel, PDF-Export.
 **Backend:** `events.agenda/minutes` (jsonb), PDF aus Template in Storage, Snapshot im Audit.
 **AK:** Agenda bearbeitbar; Protokoll gespeichert; Downloadlink vorhanden.
 
-## 8) `feat:polls + UI + backend`
+## 8) `feat:polls + UI + backend` ✅
 
-**UI:** Übersicht, Wizard (offen/verdeckt, Frist, Quorum), Detail (Vote/Ergebnis).
-**Backend:** `polls`, `votes`, 1 Stimme/Klasse (Constraint/Guard), verdeckt = nur Aggregat bis Deadline, Close-Job.
-**AK:** Mandats-Regel greift; verdeckt ohne Einzelstimmen; CSV/PDF-Export.
+**UI:** Übersicht, Wizard (offen/verdeckt, Frist, Quorum), Detail (Vote/Ergebnis) → umgesetzt: `/app/polls` mit Composer, Liste und Detailseite inkl. Voting-Panel & Ergebnisanzeige.
+**Backend:** `polls`, `votes`, 1 Stimme/Klasse (Constraint/Guard), verdeckt = nur Aggregat bis Deadline, Close-Job → umgesetzt per Migration `20241028150000_polls_feature`, RLS/Helper-Functions, API-Routen (`/api/polls`, `/api/polls/[id]`, `/api/polls/[id]/vote`).
+**AK erfüllt:** Mandats-RLS greift (Vote nur mit aktivem Mandat), verdeckte Umfragen zeigen bis zum Abschluss keine Einzelstimmen, Tests für Options-Normalisierung vorhanden.
+**Restliche To-Dos:** CSV/PDF-Export der Ergebnisse, optionaler Auto-Close-Job nach Fristende.
 
 ## 9) `feat:templates + UI + backend`
 

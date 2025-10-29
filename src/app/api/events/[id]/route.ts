@@ -8,7 +8,7 @@ import {
 
 type Params = {
   params: {
-    id: string;
+    id?: string;
   };
 };
 
@@ -18,7 +18,8 @@ type EventUpdatePayload = {
 };
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { id } = params;
+  const id = params?.id ?? extractIdFromUrl(request.url);
+
   if (!id) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
@@ -77,4 +78,18 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });
+}
+
+function extractIdFromUrl(url: string): string | null {
+  try {
+    const { pathname } = new URL(url);
+    const segments = pathname.split("/").filter(Boolean);
+    // /api/events/:id
+    if (segments.length >= 3) {
+      return segments[2] ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

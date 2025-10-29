@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { SupabaseProvider } from "@/components/providers/supabase-provider";
+import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { AppShell } from "@/components/app/app-shell";
 
 type AppLayoutProps = {
@@ -10,18 +11,23 @@ type AppLayoutProps = {
 
 export default async function AppLayout({ children }: AppLayoutProps) {
   const supabase = await getServerSupabase();
-  const [
-    { data: { session } },
-    { data: { user } },
-  ] = await Promise.all([supabase.auth.getSession(), supabase.auth.getUser()]);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session || !user) {
+  if (!user) {
     redirect("/login");
   }
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   return (
     <SupabaseProvider initialSession={session}>
-      <AppShell user={user}>{children}</AppShell>
+      <ReactQueryProvider>
+        <AppShell user={user}>{children}</AppShell>
+      </ReactQueryProvider>
     </SupabaseProvider>
   );
 }

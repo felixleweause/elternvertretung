@@ -2,18 +2,20 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import {
-  isReminderColumnMissing,
-  logReminderColumnWarning,
-} from "@/lib/supabase/reminder-support";
+  fetchEventWithReminderFallback,
+  type EventRowData,
+} from "@/lib/supabase/event-queries";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function GET(_request: Request, { params }: Params) {
-  const { id } = params;
+  const { id: resolvedId } = await params;
+  const id = resolvedId ?? extractIdFromUrl(_request.url);
+
   if (!id) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
@@ -29,70 +31,18 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { data: initialEvent, error } = await supabase
-    .from("events")
-    .select(
-      `
-        id,
-        title,
-        description,
-        start_at,
-        end_at,
-        location,
-        scope_type,
-        scope_id,
-        remind_24h,
-        remind_2h,
-        created_at,
-        profiles (
-          id,
-          name,
-          email
-        )
-      `
-    )
-    .eq("id", id)
-    .maybeSingle();
-  let event = initialEvent;
+  let event: EventRowData | null = null;
 
-  if (error) {
-    if (isReminderColumnMissing(error)) {
-      logReminderColumnWarning("ics export fetch");
-      const fallback = await supabase
-        .from("events")
-        .select(
-          `
-            id,
-            title,
-            description,
-            start_at,
-            end_at,
-            location,
-            scope_type,
-            scope_id,
-            created_at,
-            profiles (
-              id,
-              name,
-              email
-            )
-          `
-        )
-        .eq("id", id)
-        .maybeSingle();
-
-      if (fallback.error) {
-        console.error("Failed to load event for ICS export", fallback.error);
-        return NextResponse.json({ error: "event_not_found" }, { status: 404 });
-      }
-
-      event = fallback.data
-        ? ({ ...fallback.data, remind_24h: false, remind_2h: false } as typeof initialEvent)
-        : null;
-    } else {
-      console.error("Failed to load event for ICS export", error);
-      return NextResponse.json({ error: "event_not_found" }, { status: 404 });
-    }
+  try {
+    const fetched = await fetchEventWithReminderFallback(
+      supabase,
+      id,
+      "ics export fetch"
+    );
+    event = fetched.event;
+  } catch (error) {
+    console.error("Failed to load event for ICS export", error);
+    return NextResponse.json({ error: "event_not_found" }, { status: 404 });
   }
 
   if (!event) {
@@ -160,4 +110,18 @@ function escapeIcs(value: string) {
     .replace(/\n/g, "\\n")
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
+}
+
+function extractIdFromUrl(url: string): string | null {
+  try {
+    const { pathname } = new URL(url);
+    const segments = pathname.split("/").filter(Boolean);
+    // /api/events/:id/ics
+    if (segments.length >= 3) {
+      return segments[2] ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Announcement, AnnouncementDescription, AnnouncementTag, AnnouncementTitle } from "@/components/ui/kibo/announcement";
 import {
   KiboForm,
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { homeKeys } from "@/lib/react-query/query-keys";
 
 type EnrollmentSummary = {
   id: string;
@@ -33,11 +35,47 @@ type ApiResponse =
 
 export function OnboardingForm({ enrollments }: OnboardingFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [classCode, setClassCode] = useState("");
   const [childInitials, setChildInitials] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+
+  const mutation = useMutation<ApiResponse, Error, { code: string; childInitials: string | null }>({
+    mutationFn: async (payload) => {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const json = (await response.json()) as ApiResponse;
+
+      if (!response.ok) {
+        const message =
+          "error" in json
+            ? mapApiError(json.error)
+            : "Unbekannter Fehler. Bitte versuche es später erneut.";
+        throw new Error(message);
+      }
+
+      return json;
+    },
+    onSuccess: () => {
+      setSuccess("Klassen-Zugang erfolgreich verknüpft. Weiterleitung...");
+      setClassCode("");
+      queryClient.invalidateQueries({ queryKey: homeKeys.overview });
+      setTimeout(() => {
+        router.replace(`/app`);
+        router.refresh();
+      }, 1200);
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -48,43 +86,11 @@ export function OnboardingForm({ enrollments }: OnboardingFormProps) {
     }
 
     setError(null);
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/onboarding", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            code: trimmedCode,
-            childInitials: childInitials.trim() || null,
-          }),
-        });
-
-        const payload = (await response.json()) as ApiResponse;
-
-        if (!response.ok) {
-          const message =
-            "error" in payload
-              ? mapApiError(payload.error)
-              : "Unbekannter Fehler. Bitte versuche es später erneut.";
-          setError(message);
-          return;
-        }
-
-        setSuccess("Klassen-Zugang erfolgreich verknüpft. Weiterleitung...");
-        setClassCode("");
-
-        setTimeout(() => {
-          router.replace(`/app`);
-          router.refresh();
-        }, 1200);
-      } catch (err) {
-        console.error("Onboarding request failed", err);
-        setError(
-          "Beim Verbinden ist ein Fehler aufgetreten. Bitte prüfe deine Verbindung oder versuche es erneut."
-        );
-      }
+    setError(null);
+    setSuccess(null);
+    mutation.mutate({
+      code: trimmedCode,
+      childInitials: childInitials.trim() || null,
     });
   };
 
@@ -142,8 +148,8 @@ export function OnboardingForm({ enrollments }: OnboardingFormProps) {
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Bei Problemen wende dich an deine Klassenvertretung oder Admin.
             </p>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Verbinde..." : "Klasse verknüpfen"}
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? "Verbinde..." : "Klasse verknüpfen"}
             </Button>
           </div>
         </form>

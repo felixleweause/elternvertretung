@@ -3,13 +3,13 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export async function POST(_request: Request, { params }: Params) {
-  const { id } = params;
+export async function POST(_request: Request, context: Params) {
+  const { id } = await context.params;
   if (!id) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }

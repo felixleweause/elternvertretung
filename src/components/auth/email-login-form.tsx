@@ -13,15 +13,23 @@ type EmailLoginFormProps = {
   redirectTo?: string;
   nextPath?: string;
   className?: string;
+  initialMessage?: string | null;
+  initialStatus?: "idle" | "loading" | "success" | "error";
 };
 
 type AuthMode = "magic" | "password";
 
-export function EmailLoginForm({ redirectTo, nextPath = "/app", className }: EmailLoginFormProps) {
+export function EmailLoginForm({
+  redirectTo,
+  nextPath = "/app",
+  className,
+  initialMessage = null,
+  initialStatus = "idle",
+}: EmailLoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(initialStatus);
+  const [message, setMessage] = useState<string | null>(initialMessage);
   const [mode, setMode] = useState<AuthMode>("magic");
   const router = useRouter();
 

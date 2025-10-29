@@ -2,12 +2,17 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getServerSupabase } from "@/lib/supabase/server";
 import {
-  isReminderColumnMissing,
-  logReminderColumnWarning,
-} from "@/lib/supabase/reminder-support";
+  fetchEventWithReminderFallback,
+  type EventRowData,
+} from "@/lib/supabase/event-queries";
+import {
+  normalizeAgendaDocument,
+  normalizeMinutesDocument,
+} from "@/lib/events/documents";
 import { Button } from "@/components/ui/button";
 import { EventRsvpChips } from "@/components/events/event-rsvp-chips";
 import { EventReminderToggle } from "@/components/events/event-reminder-toggle";
+import { EventAgendaSection } from "@/components/events/event-agenda-section";
 import type { EventDetail } from "@/components/events/types";
 
 const dateFormatter = new Intl.DateTimeFormat("de-DE", {
@@ -24,14 +29,19 @@ const endFormatter = new Intl.DateTimeFormat("de-DE", {
   minute: "2-digit",
 });
 
-type PageParams = {
-  params: {
+type PageProps = {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export default async function EventDetailPage({ params }: PageParams) {
-  const { id } = params;
+export default async function EventDetailPage({ params }: PageProps) {
+  const { id: resolvedId } = await params;
+
+  if (!resolvedId) {
+    notFound();
+  }
+
   const supabase = await getServerSupabase();
 
   const {
@@ -42,85 +52,22 @@ export default async function EventDetailPage({ params }: PageParams) {
     redirect("/login");
   }
 
-  const {
-    data: initialEventRecord,
-    error: eventError,
-  } = await supabase
-    .from("events")
-    .select(
-      `
-        id,
-        school_id,
-        scope_type,
-        scope_id,
-        title,
-        description,
-        start_at,
-        end_at,
-        location,
-        remind_24h,
-        remind_2h,
-        created_at,
-        created_by,
-        profiles (
-          id,
-          name,
-          email
-        )
-      `
-    )
-    .eq("id", id)
-    .maybeSingle();
-
   let remindersAvailable = true;
-  let eventRecord = initialEventRecord;
+  let agendaAvailable = true;
+  let eventRecord: EventRowData | null = null;
 
-  if (eventError) {
-    if (isReminderColumnMissing(eventError)) {
-      remindersAvailable = false;
-      logReminderColumnWarning("event detail fetch");
-      const fallback = await supabase
-        .from("events")
-        .select(
-          `
-            id,
-            school_id,
-            scope_type,
-            scope_id,
-            title,
-            description,
-            start_at,
-            end_at,
-            location,
-            created_at,
-            created_by,
-            profiles (
-              id,
-              name,
-              email
-            )
-          `
-        )
-        .eq("id", id)
-        .maybeSingle();
-
-      if (fallback.error) {
-        console.error(
-          "Failed to load event detail without reminder columns",
-          fallback.error
-        );
-      }
-
-      eventRecord = fallback.data
-        ? ({
-            ...fallback.data,
-            remind_24h: false,
-            remind_2h: false,
-          } as typeof eventRecord)
-        : null;
-    } else {
-      console.error("Failed to load event detail", eventError);
-    }
+  try {
+    const fetched = await fetchEventWithReminderFallback(
+      supabase,
+      resolvedId,
+      "event detail fetch"
+    );
+    eventRecord = fetched.event;
+    remindersAvailable = fetched.remindersAvailable;
+    agendaAvailable = fetched.agendaAvailable;
+  } catch (error) {
+    console.error("Failed to load event detail", error);
+    notFound();
   }
 
   if (!eventRecord) {
@@ -142,12 +89,12 @@ export default async function EventDetailPage({ params }: PageParams) {
   const { data: rsvpRow } = await supabase
     .from("rsvps")
     .select("status")
-    .eq("event_id", id)
+    .eq("event_id", resolvedId)
     .eq("user_id", user.id)
     .maybeSingle();
 
   const { data: manageResult } = await supabase.rpc("can_manage_event", {
-    p_event_id: id,
+    p_event_id: resolvedId,
   });
 
   let attendeeCount: EventDetail["attendeeCount"] = null;
@@ -155,7 +102,7 @@ export default async function EventDetailPage({ params }: PageParams) {
     const { data: allRsvps } = await supabase
       .from("rsvps")
       .select("status")
-      .eq("event_id", id);
+      .eq("event_id", resolvedId);
 
     if (allRsvps) {
       const counts = allRsvps.reduce(
@@ -170,6 +117,9 @@ export default async function EventDetailPage({ params }: PageParams) {
       attendeeCount = counts;
     }
   }
+
+  const agendaDocument = normalizeAgendaDocument(eventRecord.agenda);
+  const minutesDocument = normalizeMinutesDocument(eventRecord.minutes);
 
   const event: EventDetail = {
     id: eventRecord.id,
@@ -196,6 +146,9 @@ export default async function EventDetailPage({ params }: PageParams) {
         : null,
     canManage: manageResult === true,
     attendeeCount,
+    agenda: agendaDocument,
+    minutes: minutesDocument,
+    agendaAvailable,
   };
 
   return (
@@ -300,6 +253,15 @@ export default async function EventDetailPage({ params }: PageParams) {
           ) : null}
         </aside>
       </section>
+
+      <EventAgendaSection
+        key={`${event.id}-${event.agenda.updatedAt ?? "na"}-${event.minutes.updatedAt ?? "nb"}`}
+        eventId={event.id}
+        agenda={event.agenda}
+        minutes={event.minutes}
+        canManage={event.canManage}
+        agendaAvailable={event.agendaAvailable}
+      />
     </section>
   );
 }

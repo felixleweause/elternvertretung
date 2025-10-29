@@ -52,6 +52,38 @@ export type EventDetail = {
     no: number;
     maybe: number;
   } | null;
+  agenda: EventAgendaDocument;
+  minutes: EventMinutesDocument;
+  agendaAvailable: boolean;
 };
 
 export type EventRsvpStatus = "yes" | "no" | "maybe";
+
+export type EventAgendaItem = {
+  id: string;
+  topic: string;
+  owner: string | null;
+  startsAt: string | null;
+  durationMinutes: number | null;
+  notes: string | null;
+};
+
+export type EventAgendaDocument = {
+  items: EventAgendaItem[];
+  updatedAt: string | null;
+  preparedBy: string | null;
+};
+
+export type EventMinutesEntry = {
+  id: string;
+  note: string;
+  recordedAt: string;
+  agendaItemId: string | null;
+  author: string | null;
+};
+
+export type EventMinutesDocument = {
+  entries: EventMinutesEntry[];
+  updatedAt: string | null;
+  preparedBy: string | null;
+};
