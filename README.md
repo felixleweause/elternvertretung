@@ -15,7 +15,6 @@ Multi-Tenant Web-App für Klassen- und Gesamtelternvertretungen: onboarding per 
 * [Qualität, Sicherheit & DSGVO](#qualität-sicherheit--dsgvo)
 * [Roadmap / Meilensteine](#roadmap--meilensteine)
 * [Ordnerstruktur (Vorschlag)](#ordnerstruktur-vorschlag)
-* [Lizenz](#lizenz)
 
 ---
 
