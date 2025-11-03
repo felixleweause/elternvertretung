@@ -290,20 +290,20 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Du darfst diese Wahl nicht einsehen." }, { status: 403 });
   }
 
-  const candidates = await loadExistingCandidates(supabase, id);
+  const candidates = await listCandidateRecords(supabase, id);
 
   return NextResponse.json(
     {
       data: candidates.map((candidate) => ({
         id: candidate.id,
         office: candidate.office,
-        displayName: candidate.display_name,
-        claimCode: candidate.claim_code,
+        displayName: candidate.displayName,
+        claimCode: candidate.claimCode,
         status: candidate.status,
-        userId: candidate.user_id,
-        claimedAt: candidate.claimed_at,
-        expiresAt: candidate.expires_at,
-        claimUrl: `/claim?c=${encodeURIComponent(candidate.claim_code)}`,
+        userId: candidate.userId,
+        claimedAt: candidate.claimedAt,
+        expiresAt: candidate.expiresAt,
+        claimUrl: `/claim?c=${encodeURIComponent(candidate.claimCode)}`,
       })),
     },
     { status: 200 }

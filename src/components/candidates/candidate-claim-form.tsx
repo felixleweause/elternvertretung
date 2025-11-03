@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,6 +19,7 @@ export function CandidateClaimForm({ initialCode = "", disabled = false }: Candi
   const [code, setCode] = useState(initialCode);
   const [status, setStatus] = useState<Status>({ kind: "idle", message: null });
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,7 +42,7 @@ export function CandidateClaimForm({ initialCode = "", disabled = false }: Candi
 
         const body = (await response.json().catch(() => null)) as
           | { error?: string }
-          | { data?: { alreadyClaimed?: boolean } }
+          | { data?: { alreadyClaimed?: boolean; pollId?: string } }
           | null;
 
         if (!response.ok) {
@@ -55,13 +57,25 @@ export function CandidateClaimForm({ initialCode = "", disabled = false }: Candi
 
         const alreadyClaimed =
           !!body && "data" in body && body.data?.alreadyClaimed === true;
+        const autoEnrolled =
+          !!body && "data" in body && body.data?.autoEnrolled === true;
+        const pollId = body && "data" in body ? body.data?.pollId : null;
 
         setStatus({
           kind: "success",
           message: alreadyClaimed
             ? "Dieser Code wurde bereits mit deinem Konto verknüpft."
+            : autoEnrolled
+            ? "Geschafft! Du bist jetzt als Kandidat:in verknüpft und automatisch der richtigen Klasse zugeordnet."
             : "Geschafft! Du bist jetzt als Kandidat:in verknüpft.",
         });
+
+        // Weiterleitung zur Umfrage-Seite, wenn pollId vorhanden
+        if (pollId) {
+          setTimeout(() => {
+            router.push(`/app/polls/${pollId}`);
+          }, 1500);
+        }
       } catch (error) {
         console.error("Failed to redeem candidate code", error);
         setStatus({

@@ -47,7 +47,16 @@ export function HomeScreen() {
   if (data.profileMissing) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-        Dein Profil ist noch nicht vollständig. Bitte schließe erst das Onboarding ab.
+        <div className="flex flex-col gap-4">
+          <div>
+            Dein Profil ist noch nicht vollständig. Bitte schließe erst das Onboarding ab.
+          </div>
+          <Button asChild>
+            <Link href="/app/onboarding">
+              Zum Onboarding
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }

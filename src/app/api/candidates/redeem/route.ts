@@ -86,6 +86,11 @@ export async function POST(request: Request) {
     data !== null &&
     (data as Record<string, unknown>).already_claimed === true;
 
+  const autoEnrolled =
+    typeof data === "object" &&
+    data !== null &&
+    (data as Record<string, unknown>).auto_enrolled === true;
+
   return NextResponse.json(
     {
       data: {
@@ -102,6 +107,7 @@ export async function POST(request: Request) {
             ? ((data as Record<string, unknown>).office as string | null)
             : null,
         alreadyClaimed,
+        autoEnrolled,
       },
     },
     { status: alreadyClaimed ? 200 : 201 }

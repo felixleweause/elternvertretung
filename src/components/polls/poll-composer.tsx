@@ -7,7 +7,8 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createPollAction, initialPollActionState } from "@/app/(app)/app/polls/actions";
+import { createPollAction } from "@/app/(app)/app/polls/actions";
+import type { ActionState } from "@/app/(app)/app/polls/actions";
 import type { PollScopeOption } from "./types";
 
 type PollComposerProps = {
@@ -46,6 +47,13 @@ function decodeScope(value: string): PollScopeOption | null {
   return null;
 }
 
+const INITIAL_ACTION_STATE: ActionState = {
+  status: "idle",
+  message: null,
+  pollId: null,
+  candidateCodes: [],
+};
+
 export function PollComposer({ scopes }: PollComposerProps) {
   const router = useRouter();
   const [scopeValue, setScopeValue] = useState(
@@ -67,7 +75,7 @@ export function PollComposer({ scopes }: PollComposerProps) {
 
   const [actionState, formAction, isPending] = useActionState(
     createPollAction,
-    initialPollActionState
+    INITIAL_ACTION_STATE
   );
 
   useEffect(() => {

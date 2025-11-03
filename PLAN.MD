@@ -168,3 +168,4 @@ Tenant: `school_id` (Subdomain).
 
 * `rep@example.com` / `Passwort123!` – Klassenvertretung, verknüpfbar mit Klassenflows.
 * `parent@example.com` / `Passwort456!` – Elternrolle zum Gegencheck von RLS/RSVP.
+* `election-test@example.com` / `UkoO+nhBDLvtmIUu` – GEV (Schule `Muster-Schule`), kann Klassenwahlen & Kandidaten-Codes anlegen.

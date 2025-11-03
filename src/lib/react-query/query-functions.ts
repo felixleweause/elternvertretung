@@ -136,9 +136,17 @@ function buildEventScopes(
 function buildPollScopes(
   mandates: MandateRow[],
   classMap: Map<string, string>,
-  schoolId: string
+  schoolId: string,
+  allowAllClasses: boolean
 ): PollScopeOption[] {
-  const scopes: PollScopeOption[] = [];
+  const scopes = new Map<string, PollScopeOption>();
+
+  const addScope = (scope: PollScopeOption) => {
+    const key = `${scope.scopeType}:${scope.scopeId}`;
+    if (!scopes.has(key)) {
+      scopes.set(key, scope);
+    }
+  };
 
   const schoolGranted = mandates.some(
     (mandate) =>
@@ -148,7 +156,7 @@ function buildPollScopes(
   );
 
   if (schoolGranted) {
-    scopes.push({
+    addScope({
       scopeType: "school",
       scopeId: schoolId,
       label: "Gesamte Schule",
@@ -166,14 +174,24 @@ function buildPollScopes(
       if (!mandate.scope_id) return;
       const label =
         classMap.get(mandate.scope_id) ?? "Klasse (unbekanntes Label)";
-      scopes.push({
+      addScope({
         scopeType: "class",
         scopeId: mandate.scope_id,
         label,
       });
     });
 
-  return scopes;
+  if (allowAllClasses) {
+    for (const [classId, label] of classMap.entries()) {
+      addScope({
+        scopeType: "class",
+        scopeId: classId,
+        label,
+      });
+    }
+  }
+
+  return Array.from(scopes.values());
 }
 
 async function fetchClassMap(
@@ -191,6 +209,29 @@ async function fetchClassMap(
 
   if (error) {
     console.error("Failed to load classrooms", error);
+    return new Map();
+  }
+
+  return new Map(
+    (data ?? []).map((clazz) => [
+      clazz.id!,
+      clazz.year ? `${clazz.name} · Jahrgang ${clazz.year}` : clazz.name!,
+    ])
+  );
+}
+
+async function fetchAllClassesForSchool(
+  supabase: Supabase,
+  schoolId: string
+): Promise<Map<string, string>> {
+  const { data, error } = await supabase
+    .from("classrooms")
+    .select("id, name, year")
+    .eq("school_id", schoolId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Failed to load classrooms for school", error);
     return new Map();
   }
 
@@ -565,21 +606,43 @@ export async function loadPollsSnapshot(
 
   const classMap = await fetchClassMap(supabase, classIds);
 
+  const hasSchoolWideMandate =
+    mandatesResponse.data?.some(
+      (mandate) =>
+        mandate.scope_type === "school" &&
+        (mandate.role === "gev" || mandate.role === "admin") &&
+        mandate.status === "active"
+    ) ?? false;
+
+  if (hasSchoolWideMandate) {
+    const additionalClasses = await fetchAllClassesForSchool(
+      supabase,
+      profileData.school_id
+    );
+    for (const [classId, label] of additionalClasses.entries()) {
+      classMap.set(classId, label);
+    }
+  }
+
   const summaryResults = await Promise.all(
     pollsData.map(async (poll) => {
-      const { data, error } = await supabase.rpc("poll_vote_summary", {
-        p_poll_id: poll.id,
-      });
-      if (error) {
-        console.error("Failed to load poll summary", error);
+      try {
+        const { data, error } = await supabase.rpc("poll_vote_summary", {
+          p_poll_id: poll.id,
+        });
+        if (error) {
+          return { pollId: poll.id!, rows: [] as { choice: string; votes: number }[] };
+        }
+        return {
+          pollId: poll.id!,
+          rows: Array.isArray(data)
+            ? (data as { choice: string; votes: number }[])
+            : [],
+        };
+      } catch (err) {
+        console.warn("Failed to load poll summary", err);
         return { pollId: poll.id!, rows: [] as { choice: string; votes: number }[] };
       }
-      return {
-        pollId: poll.id!,
-        rows: Array.isArray(data)
-          ? (data as { choice: string; votes: number }[])
-          : [],
-      };
     })
   );
 
@@ -630,7 +693,12 @@ export async function loadPollsSnapshot(
   });
 
   const composerScopes = mandatesResponse.data
-    ? buildPollScopes(mandatesResponse.data, classMap, profileData.school_id)
+    ? buildPollScopes(
+        mandatesResponse.data,
+        classMap,
+        profileData.school_id,
+        hasSchoolWideMandate
+      )
     : [];
 
   return { polls, composerScopes, profileMissing: false };

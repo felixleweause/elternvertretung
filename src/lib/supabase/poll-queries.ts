@@ -30,8 +30,8 @@ type PollRowData = {
 };
 
 type PollSummaryRow = {
-  choice: string;
-  votes: number;
+  vote_choice: string;
+  vote_count: number;
 };
 
 export async function fetchPollDetail(
@@ -106,8 +106,8 @@ export async function fetchPollDetail(
   const optionVotes = options.map<PollOption>((option) => ({
     ...option,
     votes:
-      summaryRows.find((row) => row.choice === option.id)?.votes ??
-      summaryRows.find((row) => row.choice === option.label)?.votes ??
+      summaryRows.find((row) => row.vote_choice === option.id)?.vote_count ??
+      summaryRows.find((row) => row.vote_choice === option.label)?.vote_count ??
       0,
   }));
 
@@ -115,7 +115,7 @@ export async function fetchPollDetail(
 
   if (poll.allow_abstain) {
     const abstainVotes =
-      summaryRows.find((row) => row.choice === "abstain")?.votes ?? 0;
+      summaryRows.find((row) => row.vote_choice === "abstain")?.vote_count ?? 0;
     if (abstainVotes > 0) {
       optionVotes.push({
         id: "abstain",
@@ -130,52 +130,21 @@ export async function fetchPollDetail(
     p_poll_id: id,
   });
 
+  // Get user's current vote from the new user_votes table
   const { data: myVoteRow } = await supabase
-    .from("votes")
-    .select("choice, voter_id")
+    .from("user_votes")
+    .select("choice")
     .eq("poll_id", id)
-    .limit(1)
+    .eq("user_id", userId)
     .maybeSingle();
 
   const myVote = typeof myVoteRow?.choice === "string" ? myVoteRow.choice : null;
 
-  const { data: mandates } = await supabase
-    .from("mandates")
-    .select("id, school_id, scope_type, scope_id, role, status, start_at, end_at")
-    .eq("user_id", userId)
-    .eq("status", "active");
-
-  const canVote =
-    Array.isArray(mandates) &&
-    mandates.some((mandate) => {
-      if (mandate.status !== "active") {
-        return false;
-      }
-      const now = Date.now();
-      const startsAt = mandate.start_at ? Date.parse(mandate.start_at) : now;
-      const endsAt = mandate.end_at ? Date.parse(mandate.end_at) : null;
-      if (Number.isNaN(startsAt) || startsAt > now) {
-        return false;
-      }
-      if (endsAt && endsAt < now) {
-        return false;
-      }
-      if (mandate.school_id !== poll.school_id) {
-        return false;
-      }
-      if (poll.scope_type === "class") {
-        return (
-          mandate.scope_type === "class" &&
-          mandate.scope_id === poll.scope_id &&
-          (mandate.role === "class_rep" || mandate.role === "class_rep_deputy")
-        );
-      }
-      return (
-        mandate.scope_type === "school" &&
-        mandate.scope_id === poll.school_id &&
-        (mandate.role === "gev" || mandate.role === "admin")
-      );
-    });
+  // Use the new voting rights function
+  const { data: canVote } = await supabase.rpc("can_vote_in_poll", {
+    p_poll_id: id,
+    p_user_id: userId,
+  });
 
   const resultsHidden =
     poll.type === "secret" &&

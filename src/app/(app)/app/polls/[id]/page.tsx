@@ -8,6 +8,8 @@ import { PollResults } from "@/components/polls/poll-results";
 import { PollCloseButton } from "@/components/polls/poll-close-button";
 import { CandidateCodeManager } from "@/components/candidates/candidate-code-manager";
 
+export const revalidate = 0;
+
 const deadlineFormatter = new Intl.DateTimeFormat("de-DE", {
   weekday: "long",
   day: "2-digit",

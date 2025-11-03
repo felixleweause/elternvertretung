@@ -20,7 +20,7 @@ type GeneratedCandidateCode = {
   expiresAt: string;
 };
 
-type ActionState = {
+export type ActionState = {
   status: "idle" | "success" | "error";
   message: string | null;
   pollId?: string | null;
@@ -234,6 +234,8 @@ export async function createPollAction(
         ? "class_representatives"
         : "school_leadership";
 
+  const allowAbstainFinal = kind === "election" ? false : allowAbstain;
+
   const insertPayload = {
     school_id: profile.school_id,
     scope_type: resolvedScopeType,
@@ -245,7 +247,7 @@ export async function createPollAction(
     deadline,
     quorum,
     options: pollOptions,
-    allow_abstain: allowAbstain,
+    allow_abstain: allowAbstainFinal,
     mandate_rule: mandateRule,
     kind,
     seats: 1,
@@ -352,10 +354,3 @@ export async function createPollAction(
     candidateCodes: generatedCodes,
   };
 }
-
-export const initialPollActionState: ActionState = {
-  status: "idle",
-  message: null,
-  pollId: null,
-  candidateCodes: [],
-};

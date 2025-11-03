@@ -98,8 +98,26 @@ export async function POST(request: Request, { params }: Params) {
     .eq("user_id", user.id)
     .eq("status", "active");
 
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("classroom_id")
+    .eq("user_id", user.id)
+    .eq("classroom_id", poll.scope_id)
+    .maybeSingle();
+
   const now = Date.now();
 
+  // Check if user can vote using the new function
+  const { data: canVote } = await supabase.rpc("can_vote_in_poll", {
+    p_poll_id: poll.id,
+    p_user_id: user.id,
+  });
+
+  if (!canVote) {
+    return NextResponse.json({ error: "no_voting_rights" }, { status: 403 });
+  }
+
+  // Find eligible mandate (for mandate-based voting)
   const eligibleMandate =
     mandates?.find((mandate) => {
       if (mandate.status !== "active") {
@@ -130,24 +148,36 @@ export async function POST(request: Request, { params }: Params) {
       );
     }) ?? null;
 
-  if (!eligibleMandate) {
-    return NextResponse.json({ error: "no_voting_rights" }, { status: 403 });
-  }
-
   const finalChoice = abstainSelected ? "abstain" : selectedOption?.id ?? choice;
 
+  // Check if user already has a vote and update it
+  const { data: existingUserVote, error: checkError } = await supabase
+    .from("user_votes")
+    .select("choice")
+    .eq("poll_id", poll.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (checkError) {
+    console.error("Failed to check existing vote", checkError);
+    return NextResponse.json(
+      { error: checkError.message ?? "vote_check_failed" },
+      { status: 400 }
+    );
+  }
+
   const upsertResult = await supabase
-    .from("votes")
+    .from("user_votes")
     .upsert(
       [
         {
           poll_id: poll.id,
-          voter_id: eligibleMandate.id,
+          user_id: user.id,
           choice: finalChoice,
         },
       ],
       {
-        onConflict: "poll_id,voter_id",
+        onConflict: "poll_id,user_id",
       }
     )
     .select("choice")

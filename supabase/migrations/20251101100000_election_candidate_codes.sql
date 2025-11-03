@@ -262,3 +262,110 @@ end;
 $$;
 
 grant execute on function public.redeem_candidate_code(text) to authenticated, anon, service_role;
+
+-- 6) Extend poll access & management helpers for GEV on class polls.
+
+create or replace function public.can_access_poll(p_poll_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_poll record;
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then
+    return false;
+  end if;
+
+  select id, school_id, scope_type, scope_id
+  into v_poll
+  from public.polls
+  where id = p_poll_id;
+
+  if not found then
+    return false;
+  end if;
+
+  if public.is_school_admin(v_poll.school_id)
+     or public.is_school_gev(v_poll.school_id)
+  then
+    return true;
+  end if;
+
+  if not exists (
+    select 1
+    from public.profiles p
+    where p.id = v_user
+      and p.school_id = v_poll.school_id
+  ) then
+    return false;
+  end if;
+
+  if v_poll.scope_type = 'school' then
+    return true;
+  end if;
+
+  if v_poll.scope_type = 'class' then
+    return public.is_class_member(v_poll.scope_id)
+      or public.is_class_representative(v_poll.scope_id)
+      or public.is_school_gev(v_poll.school_id);
+  end if;
+
+  return false;
+end;
+$$;
+
+create or replace function public.can_manage_poll(p_poll_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_poll record;
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then
+    return false;
+  end if;
+
+  select school_id, scope_type, scope_id, created_by
+  into v_poll
+  from public.polls
+  where id = p_poll_id;
+
+  if not found then
+    return false;
+  end if;
+
+  if v_poll.created_by = v_user then
+    return true;
+  end if;
+
+  if public.is_school_admin(v_poll.school_id) then
+    return true;
+  end if;
+
+  if v_poll.scope_type = 'school'
+     and public.is_school_gev(v_poll.school_id)
+  then
+    return true;
+  end if;
+
+  if v_poll.scope_type = 'class' then
+    if public.is_class_representative(v_poll.scope_id) then
+      return true;
+    end if;
+
+    if public.is_school_gev(v_poll.school_id) then
+      return true;
+    end if;
+  end if;
+
+  return false;
+end;
+$$;

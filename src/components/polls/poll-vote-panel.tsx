@@ -30,15 +30,16 @@ export function PollVotePanel({
   status,
 }: PollVotePanelProps) {
   const router = useRouter();
-  const [selected, setSelected] = useState(currentChoice ?? "");
+  const [selected, setSelected] = useState("");
   const [{ error, success }, setState] = useState<VoteState>({
     error: null,
     success: null,
   });
   const [isPending, startTransition] = useTransition();
 
+  // Initialize selected choice, but allow changes
   useEffect(() => {
-    if (currentChoice && currentChoice !== selected) {
+    if (currentChoice && !selected) {
       setSelected(currentChoice);
     }
   }, [currentChoice, selected]);
@@ -101,7 +102,8 @@ export function PollVotePanel({
           error: null,
           success: "Stimme gespeichert.",
         });
-        router.refresh();
+        // Force hard refresh to ensure canVote is updated
+        window.location.reload();
         setTimeout(() => {
           setState({ error: null, success: null });
         }, 1500);
@@ -129,7 +131,7 @@ export function PollVotePanel({
             ? "Die Umfrage ist beendet. Stimmen können nicht mehr geändert werden."
             : canVote
               ? "Wähle eine Option aus, deine Stimme kann bis zum Abschluss angepasst werden."
-              : "Du hast keine aktive Vertretung für diesen Bereich und kannst daher nicht abstimmen."}
+              : "Du bist nicht stimmberechtigt für diese Umfrage."}
         </p>
       </header>
 
