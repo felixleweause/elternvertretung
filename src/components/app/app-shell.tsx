@@ -38,13 +38,6 @@ export function AppShell({ user, children }: AppShellProps) {
     setIsMenuOpen(false);
   }, [pathname]);
 
-  const navItems = [
-    { href: "/app", label: "Übersicht" },
-    { href: "/app/announcements", label: "Ankündigungen" },
-    { href: "/app/events", label: "Termine" },
-    { href: "/app/polls", label: "Umfragen" },
-  ] as const;
-
   const isActive = (href: string) => {
     if (href === "/app") {
       return pathname === href;
@@ -73,21 +66,54 @@ export function AppShell({ user, children }: AppShellProps) {
             Elternvertretung
           </div>
           <nav className="ml-4 hidden items-center gap-2 text-sm font-medium text-zinc-500 md:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                prefetch
-                className={cn(
-                  "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
-                  isActive(item.href)
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "text-zinc-600 dark:text-zinc-400"
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            <Link
+              href="/app"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 dark:text-zinc-400"
+              )}
+            >
+              Übersicht
+            </Link>
+            <Link
+              href="/app/announcements"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app/announcements")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 dark:text-zinc-400"
+              )}
+            >
+              Ankündigungen
+            </Link>
+            <Link
+              href="/app/events"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app/events")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 dark:text-zinc-400"
+              )}
+            >
+              Termine
+            </Link>
+            <Link
+              href="/app/polls"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app/polls")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-600 dark:text-zinc-400"
+              )}
+            >
+              Umfragen
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
             <div className="hidden md:flex flex-col items-end">
@@ -113,21 +139,54 @@ export function AppShell({ user, children }: AppShellProps) {
             id="app-mobile-nav"
             className="flex flex-col gap-1 border-t border-zinc-200 bg-white px-6 py-3 text-sm font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 md:hidden"
           >
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                prefetch
-                className={cn(
-                  "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
-                  isActive(item.href)
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "bg-transparent"
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            <Link
+              href="/app"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-transparent"
+              )}
+            >
+              Übersicht
+            </Link>
+            <Link
+              href="/app/announcements"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app/announcements")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-transparent"
+              )}
+            >
+              Ankündigungen
+            </Link>
+            <Link
+              href="/app/events"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app/events")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-transparent"
+              )}
+            >
+              Termine
+            </Link>
+            <Link
+              href="/app/polls"
+              prefetch
+              className={cn(
+                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+                isActive("/app/polls")
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-transparent"
+              )}
+            >
+              Umfragen
+            </Link>
           </nav>
         ) : null}
       </header>

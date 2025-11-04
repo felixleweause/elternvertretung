@@ -247,18 +247,23 @@ export async function loadAnnouncementsSnapshot(
   supabase: Supabase,
   userId: string
 ): Promise<AnnouncementsSnapshot> {
+  const start = performance.now();
+  
   const profilePromise = supabase
     .from("profiles")
     .select("id, school_id")
     .eq("id", userId)
-    .maybeSingle();
+    .maybeSingle()
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
   const mandatesPromise = supabase
     .from("mandates")
     .select("scope_type, scope_id, role, status")
     .eq("user_id", userId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
+  // Optimized: No JOIN, minimal columns, LIMIT 15
   const announcementsPromise = supabase
     .from("announcements")
     .select(
@@ -269,27 +274,22 @@ export async function loadAnnouncementsSnapshot(
             scope_id,
             title,
             body,
-            attachments,
-            allow_comments,
-            requires_ack,
             pinned,
             created_at,
-            created_by,
-            profiles (
-              id,
-              name,
-              email
-            )
+            created_by
       `
     )
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(15)
+    .abortSignal(AbortSignal.timeout(3000)); // Increased from 1000ms
 
+  // Simplified receipts query
   const receiptsPromise = supabase
     .from("read_receipts")
-    .select("announcement_id, read_at")
-    .eq("user_id", userId);
+    .select("announcement_id")
+    .eq("user_id", userId)
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
   const [profileResult, mandatesResponse, announcementsResponse, receiptsResponse] =
     await Promise.all([
@@ -298,6 +298,8 @@ export async function loadAnnouncementsSnapshot(
       announcementsPromise,
       receiptsPromise,
     ]);
+
+  console.log(`[QUERY] loadAnnouncementsSnapshot: ${(performance.now() - start).toFixed(2)}ms`);
 
   if (profileResult.error) {
     console.error("Failed to load profile for announcements snapshot", profileResult.error);
@@ -362,10 +364,13 @@ export async function loadEventsSnapshot(
   supabase: Supabase,
   userId: string
 ): Promise<EventsSnapshot> {
+  const start = performance.now();
+  
   const windowStartDate = new Date();
   windowStartDate.setDate(windowStartDate.getDate() - 14);
   const windowStart = windowStartDate.toISOString();
 
+  // Optimized: No JOIN, minimal columns, LIMIT 15
   const eventsSelection = supabase
     .from("events")
     .select(
@@ -380,35 +385,34 @@ export async function loadEventsSnapshot(
         end_at,
         location,
         remind_24h,
-        remind_2h,
         created_at,
-        profiles (
-          id,
-          name,
-          email
-        )
+        created_by
       `
     )
     .gte("start_at", windowStart)
     .order("start_at", { ascending: true })
-    .limit(50);
+    .limit(15)
+    .abortSignal(AbortSignal.timeout(3000)); // Increased from 1000ms
 
   const profilePromise = supabase
     .from("profiles")
     .select("id, school_id")
     .eq("id", userId)
-    .maybeSingle();
+    .maybeSingle()
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
   const mandatesPromise = supabase
     .from("mandates")
     .select("scope_type, scope_id, role, status")
     .eq("user_id", userId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
   const rsvpPromise = supabase
     .from("rsvps")
     .select("event_id, status")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
   const [profileResult, mandatesResponse, eventsResponse, rsvpResponse] =
     await Promise.all([
@@ -417,6 +421,8 @@ export async function loadEventsSnapshot(
       eventsSelection,
       rsvpPromise,
     ]);
+
+  console.log(`[QUERY] loadEventsSnapshot: ${(performance.now() - start).toFixed(2)}ms`);
 
   if (profileResult.error) {
     console.error("Failed to load profile for events snapshot", profileResult.error);
@@ -533,18 +539,23 @@ export async function loadPollsSnapshot(
   supabase: Supabase,
   userId: string
 ): Promise<PollsSnapshot> {
+  const start = performance.now();
+  
   const profilePromise = supabase
     .from("profiles")
     .select("id, school_id")
     .eq("id", userId)
-    .maybeSingle();
+    .maybeSingle()
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
   const mandatesPromise = supabase
     .from("mandates")
     .select("scope_type, scope_id, role, status")
     .eq("user_id", userId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
 
+  // Optimized: No JOIN, minimal columns, LIMIT 15
   const pollsPromise = supabase
     .from("polls")
     .select(
@@ -559,26 +570,21 @@ export async function loadPollsSnapshot(
           status,
           kind,
           deadline,
-          quorum,
-          allow_abstain,
-          options,
-          seats,
           created_at,
-          profiles (
-            id,
-            name,
-            email
-        )
+          created_by
       `
     )
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(15)
+    .abortSignal(AbortSignal.timeout(3000)); // Increased from 1000ms
 
   const [profileResult, mandatesResponse, pollsResponse] = await Promise.all([
     profilePromise,
     mandatesPromise,
     pollsPromise,
   ]);
+
+  console.log(`[QUERY] loadPollsSnapshot: ${(performance.now() - start).toFixed(2)}ms`);
 
   if (profileResult.error) {
     console.error("Failed to load profile for polls snapshot", profileResult.error);

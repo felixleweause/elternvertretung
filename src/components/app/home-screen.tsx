@@ -21,6 +21,11 @@ import {
   AnnouncementTitle,
 } from "@/components/ui/kibo/announcement";
 import { useHomeQuery } from "@/lib/react-query/hooks";
+import { useSchoolId } from "@/lib/hooks/use-school-id";
+import { useUserRealtime } from "@/lib/hooks/use-realtime-invalidation";
+import { useUser } from "@supabase/auth-helpers-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   HIGHLIGHTS_BY_ROLE,
   NEXT_STEPS_BY_ROLE,
@@ -28,11 +33,39 @@ import {
   ROLE_LABELS,
   type UserRole,
 } from "@/lib/constants/home";
-import { useUser } from "@supabase/auth-helpers-react";
 
 export function HomeScreen() {
-  const { data, isLoading } = useHomeQuery();
   const user = useUser();
+  const router = useRouter();
+  const schoolId = useSchoolId();
+  const { data, isLoading } = useHomeQuery(schoolId || "");
+  
+  // Handle auth and onboarding redirects
+  useEffect(() => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    
+    if (!schoolId) {
+      router.push("/app/onboarding");
+      return;
+    }
+  }, [user, schoolId, router]);
+  
+  // Enable realtime updates for user roles and mandates
+  if (schoolId) {
+    useUserRealtime(schoolId);
+  }
+
+  // Show loading while checking auth/onboarding
+  if (!user || !schoolId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return (

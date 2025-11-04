@@ -128,22 +128,59 @@ Tenant: `school_id` (Subdomain).
 **AK erfüllt:** Mandats-RLS greift (Vote nur mit aktivem Mandat), verdeckte Umfragen zeigen bis zum Abschluss keine Einzelstimmen, Tests für Options-Normalisierung vorhanden.
 **Restliche To-Dos:** CSV/PDF-Export der Ergebnisse, optionaler Auto-Close-Job nach Fristende.
 
-## 9) `feat:templates + UI + backend`
+## 9) `feat:mandates + UI + backend`
+
+**UI:** Mandat-Übergabe-Wizard, Mandat-Liste, Mandat-Details.
+**Backend:** `mandates` (create/update/end/transfer), Audit-Events.
+**AK:** Mandat-Übergabe-Wizard, Mandat-Liste, Mandat-Details.
+
+## 10) `feat:live-bootstrap + realtime` ✅
+**App-Shell/Bootstrap umgesetzt:**
+- Serverseitiges `getBootstrap()` (User, Rollen/Scopes, initiale Snapshots für announcements, events, polls, home)
+- Einbindung in `app/(app)/layout.tsx`
+- `BootstrapProvider` prefüllt TanStack-Query-Cache mit stabilen Keys inkl. `schoolId` (["user","me"], ["announcements", schoolId], ["events", schoolId], ["polls", schoolId], ["home","overview", schoolId])
+
+**Data-Fetching standardisiert:**
+- Query-Keys überarbeitet und school-gebunden (`announcementsKeys`, `eventsKeys`, `pollsKeys`, `homeKeys`, `userKeys`)
+- Hooks aktualisiert: `useAnnouncementsQuery(schoolId)`, `useEventsQuery(schoolId)`, `usePollsQuery(schoolId)`, `useHomeQuery(schoolId)` sowie `useMeQuery()`, `useRolesQuery(schoolId)`, `useScopesQuery(schoolId)`
+- Serverseitiges Prefetching in Seiten (`/app`, `/app/announcements`, `/app/events`, `/app/polls`) nutzt `schoolId`
+
+**Realtime integriert:**
+- Generischer Hook `useRealtimeInvalidation({ table, filter, queryKey, events, schoolId })`
+- Spezifische Hooks: `useAnnouncementsRealtime`, `useEventsRealtime`, `usePollsRealtime`, `useUserRealtime`
+- In Screens verdrahtet: Announcements, Events, Polls, Home invalidieren Queries automatisch bei INSERT/UPDATE/DELETE
+- Sinnvolle Defaults: `refetchOnWindowFocus/refetchOnReconnect` aktiv, Retries defensiv
+
+**AK erfüllt:**
+- Beim Einstieg stehen User + Scope + Kernlisten sofort aus dem Cache bereit (ohne zusätzliches Laden)
+- Alle wichtigen Listen aktualisieren sich automatisch bei DB-Änderungen im erlaubten Scope
+- Query-Keys sind tenant-stabil (schoolId) und konsistent in allen Screens
+
+**AK:** Beim Einstieg ist User + Scope + Kernlisten ohne zusätzliches Laden verfügbar; alle wichtigen Listen aktualisieren sich automatisch bei DB-Änderungen im erlaubten Scope, ohne Seiten-Reload und ohne, dass der Client je Daten außerhalb der RLS-Sicht bekommt.
+
+## 11) `feat:year-end + UI + backend`
+
+**UI:** Schuljahreswechsel-Assistent, Mandat-Übergabe-Wizard.
+**Backend:** Schuljahreswechsel-Assistent, Mandat-Übergabe-Wizard.
+**AK:** Schuljahreswechsel-Assistent, Mandat-Übergabe-Wizard.
+
+## 12) `feat:templates + UI + backend`
 
 **UI:** Template-Library, Editor mit Token-Preview, Version-Timeline.
 **Backend:** `templates` (key/version/scope), Token-Validator, Standard-Vorlage pro Scope.
 **AK:** Version anlegen/restore; Tokens korrekt; Standard setzen.
 
-## 10) `feat:tasks + UI + backend`
+## 13) `feat:tasks + UI + backend`
 
 **UI:** Event-Tab „Aufgaben“: Liste, Self-assign, Due-Picker, Status-Toggle, „Mitbringen“-Presets.
 **Backend:** `tasks` mit RLS (Ersteller/Assignee, Moderation durch Klassen-Vertretung), Reminder T-1.
 **AK:** Claim/Unclaim; Fälligkeit/Status live; Reminder versendet.
 
-## 11) `feat:privacy + UI + backend`
+## 14) `feat:privacy + UI + backend`
 
-
-
+**UI:** Datenschutz-Info, Export/Löschung.
+**Backend:** Export/Löschung, Audit-Events.
+**AK:** Export/Löschung; Audit-Events.
 
 ---
 

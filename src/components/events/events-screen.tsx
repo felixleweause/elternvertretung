@@ -1,11 +1,46 @@
 "use client";
 
 import { useEventsQuery } from "@/lib/react-query/hooks";
+import { useSchoolId } from "@/lib/hooks/use-school-id";
+import { useEventsRealtime } from "@/lib/hooks/use-realtime-invalidation";
+import { useUser } from "@supabase/auth-helpers-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { EventComposer } from "./event-composer";
 import { EventList } from "./event-list";
 
 export function EventsScreen() {
-  const { data, isLoading } = useEventsQuery();
+  const user = useUser();
+  const router = useRouter();
+  const schoolId = useSchoolId();
+  const { data, isLoading } = useEventsQuery(schoolId || "");
+  
+  // Handle auth and onboarding redirects
+  useEffect(() => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    
+    if (!schoolId) {
+      router.push("/app/onboarding");
+      return;
+    }
+  }, [user, schoolId, router]);
+
+  // Enable realtime updates
+  if (schoolId) {
+    useEventsRealtime(schoolId);
+  }
+
+  // Show loading while checking auth/onboarding
+  if (!user || !schoolId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
+      </div>
+    );
+  }
 
   if (!data || isLoading) {
     return (

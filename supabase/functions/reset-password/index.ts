@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 
 Deno.serve(async (req: Request) => {
   // Only allow POST requests
@@ -24,12 +24,8 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get the user by email
-    const { data: { users }, error: getUserError } = await supabase.auth.admin.listUsers({
-      filters: {
-        email: email
-      }
-    });
+    
+    const { data: { users }, error: getUserError } = await supabase.auth.admin.listUsers();
 
     if (getUserError) {
       return new Response(
@@ -38,14 +34,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!users || users.length === 0) {
+    // Find user by email
+    const user = users?.find(u => u.email === email);
+
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'User not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       );
     }
-
-    const user = users[0];
     
     // Update user password
     const { error: updateError } = await supabase.auth.admin.updateUserById(
@@ -66,8 +63,9 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error', details: errorMessage }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
