@@ -78,7 +78,7 @@ export async function listCandidateRecords(
           display_name: string;
           claim_code: string;
           expires_at: string;
-          status: string;
+          status: "created" | "claimed" | "pending_assignment" | "assigned" | "expired";
           user_id: string | null;
           claimed_at: string | null;
         } => row.office === "class_rep" || row.office === "class_rep_deputy"
@@ -187,7 +187,7 @@ export async function createCandidateRecords(
           display_name: string;
           claim_code: string;
           expires_at: string;
-          status: string;
+          status: "created" | "claimed" | "pending_assignment" | "assigned" | "expired";
           user_id: string | null;
           claimed_at: string | null;
         } => row.office === "class_rep" || row.office === "class_rep_deputy"

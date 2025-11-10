@@ -46,27 +46,25 @@ export function CandidateClaimForm({ initialCode = "", disabled = false }: Candi
           | null;
 
         if (!response.ok) {
+          const errorMessage = (body && "error" in body && body.error && typeof body.error === "string") 
+            ? body.error 
+            : "Der Code konnte nicht eingelöst werden.";
+          
           setStatus({
             kind: "error",
-            message:
-              (body && "error" in body && body.error) ??
-              "Der Code konnte nicht eingelöst werden.",
+            message: errorMessage,
           });
           return;
         }
 
         const alreadyClaimed =
           !!body && "data" in body && body.data?.alreadyClaimed === true;
-        const autoEnrolled =
-          !!body && "data" in body && body.data?.autoEnrolled === true;
         const pollId = body && "data" in body ? body.data?.pollId : null;
 
         setStatus({
           kind: "success",
           message: alreadyClaimed
             ? "Dieser Code wurde bereits mit deinem Konto verknüpft."
-            : autoEnrolled
-            ? "Geschafft! Du bist jetzt als Kandidat:in verknüpft und automatisch der richtigen Klasse zugeordnet."
             : "Geschafft! Du bist jetzt als Kandidat:in verknüpft.",
         });
 

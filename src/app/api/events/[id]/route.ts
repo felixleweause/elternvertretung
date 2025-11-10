@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import {
   isReminderColumnMissing,
   logReminderColumnWarning,
 } from "@/lib/supabase/reminder-support";
 
 type Params = {
-  params: {
+  params: Promise<{
     id?: string;
-  };
+  }>;
 };
 
 type EventUpdatePayload = {
@@ -17,7 +17,8 @@ type EventUpdatePayload = {
   remind_2h?: boolean;
 };
 
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, context: { params: Promise<{ id?: string }> }) {
+  const params = await context.params;
   const id = params?.id ?? extractIdFromUrl(request.url);
 
   if (!id) {
@@ -41,8 +42,8 @@ export async function PATCH(request: Request, { params }: Params) {
 
   updates.updated_at = new Date().toISOString();
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },

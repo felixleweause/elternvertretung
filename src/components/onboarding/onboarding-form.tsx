@@ -63,10 +63,12 @@ export function OnboardingForm({ enrollments }: OnboardingFormProps) {
 
       return json;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setSuccess("Klassen-Zugang erfolgreich verknüpft. Weiterleitung...");
       setClassCode("");
-      queryClient.invalidateQueries({ queryKey: homeKeys.overview });
+      if ("data" in data) {
+        queryClient.invalidateQueries({ queryKey: homeKeys.overview(data.data.school_id) });
+      }
       setTimeout(() => {
         router.replace(`/app`);
         router.refresh();

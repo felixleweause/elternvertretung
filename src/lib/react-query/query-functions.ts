@@ -51,6 +51,10 @@ export type HomeSnapshot = {
 
 type MandateRow = Database["public"]["Tables"]["mandates"]["Row"];
 
+type SnapshotOptions = {
+  schoolId?: string | null;
+};
+
 function buildAnnouncementScopes(
   mandates: MandateRow[],
   classMap: Map<string, string>,
@@ -245,24 +249,25 @@ async function fetchAllClassesForSchool(
 
 export async function loadAnnouncementsSnapshot(
   supabase: Supabase,
-  userId: string
+  userId: string,
+  options: SnapshotOptions = {}
 ): Promise<AnnouncementsSnapshot> {
   const start = performance.now();
   
-  const profilePromise = supabase
-    .from("profiles")
-    .select("id, school_id")
-    .eq("id", userId)
-    .maybeSingle()
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+  const profilePromise = options.schoolId
+    ? Promise.resolve({ data: { school_id: options.schoolId }, error: null })
+    : supabase
+        .from("profiles")
+        .select("id, school_id")
+        .eq("id", userId)
+        .maybeSingle()
+    
   const mandatesPromise = supabase
     .from("mandates")
     .select("scope_type, scope_id, role, status")
     .eq("user_id", userId)
     .eq("status", "active")
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+    
   // Optimized: No JOIN, minimal columns, LIMIT 15
   const announcementsPromise = supabase
     .from("announcements")
@@ -282,15 +287,13 @@ export async function loadAnnouncementsSnapshot(
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(15)
-    .abortSignal(AbortSignal.timeout(3000)); // Increased from 1000ms
-
+    
   // Simplified receipts query
   const receiptsPromise = supabase
     .from("read_receipts")
     .select("announcement_id")
     .eq("user_id", userId)
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+    
   const [profileResult, mandatesResponse, announcementsResponse, receiptsResponse] =
     await Promise.all([
       profilePromise,
@@ -321,15 +324,15 @@ export async function loadAnnouncementsSnapshot(
   const classIds = Array.from(
     new Set(
       announcementsData
-        .filter((item) => item.scope_type === "class")
-        .map((item) => item.scope_id!)
+        .filter((item: any) => item.scope_type === "class")
+        .map((item: any) => item.scope_id!)
     )
   );
 
-  const classMap = await fetchClassMap(supabase, classIds);
-  const readSet = new Set(readReceipts.map((receipt) => receipt.announcement_id));
+  const classMap = await fetchClassMap(supabase, classIds as string[]);
+  const readSet = new Set(readReceipts.map((receipt: any) => receipt.announcement_id));
 
-  const announcements: AnnouncementListItem[] = announcementsData.map((item) => ({
+  const announcements: AnnouncementListItem[] = announcementsData.map((item: any) => ({
     id: item.id!,
     schoolId: item.school_id!,
     scopeType: item.scope_type!,
@@ -354,7 +357,7 @@ export async function loadAnnouncementsSnapshot(
   }));
 
   const composerScopes = mandatesResponse.data
-    ? buildAnnouncementScopes(mandatesResponse.data, classMap, profile.school_id)
+    ? buildAnnouncementScopes(mandatesResponse.data as any, classMap, profile.school_id)
     : [];
 
   return { announcements, composerScopes, profileMissing: false };
@@ -362,7 +365,8 @@ export async function loadAnnouncementsSnapshot(
 
 export async function loadEventsSnapshot(
   supabase: Supabase,
-  userId: string
+  userId: string,
+  options: SnapshotOptions = {}
 ): Promise<EventsSnapshot> {
   const start = performance.now();
   
@@ -392,28 +396,26 @@ export async function loadEventsSnapshot(
     .gte("start_at", windowStart)
     .order("start_at", { ascending: true })
     .limit(15)
-    .abortSignal(AbortSignal.timeout(3000)); // Increased from 1000ms
-
-  const profilePromise = supabase
-    .from("profiles")
-    .select("id, school_id")
-    .eq("id", userId)
-    .maybeSingle()
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+    
+  const profilePromise = options.schoolId
+    ? Promise.resolve({ data: { school_id: options.schoolId }, error: null })
+    : supabase
+        .from("profiles")
+        .select("id, school_id")
+        .eq("id", userId)
+        .maybeSingle()
+    
   const mandatesPromise = supabase
     .from("mandates")
     .select("scope_type, scope_id, role, status")
     .eq("user_id", userId)
     .eq("status", "active")
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+    
   const rsvpPromise = supabase
     .from("rsvps")
     .select("event_id, status")
     .eq("user_id", userId)
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+    
   const [profileResult, mandatesResponse, eventsResponse, rsvpResponse] =
     await Promise.all([
       profilePromise,
@@ -479,31 +481,31 @@ export async function loadEventsSnapshot(
       .limit(50);
 
     if (!fallback.error) {
-      eventsData = fallback.data ?? [];
+      eventsData = fallback.data as any ?? [];
     }
   }
 
   const classIds = Array.from(
     new Set(
       eventsData
-        .filter((event) => event.scope_type === "class")
-        .map((event) => event.scope_id!)
+        .filter((event: any) => event.scope_type === "class")
+        .map((event: any) => event.scope_id!)
     )
   );
 
-  const classMap = await fetchClassMap(supabase, classIds);
+  const classMap = await fetchClassMap(supabase, classIds as string[]);
 
   const rsvpData = rsvpResponse.data ?? [];
   const rsvpMap = new Map<string, "yes" | "no" | "maybe">(
     rsvpData
       .filter(
-        (row): row is { event_id: string; status: "yes" | "no" | "maybe" } =>
+        (row: any): row is { event_id: string; status: "yes" | "no" | "maybe" } =>
           row.status === "yes" || row.status === "no" || row.status === "maybe"
       )
-      .map((row) => [row.event_id!, row.status!])
+      .map((row: any) => [row.event_id!, row.status!])
   );
 
-  const events: EventListItem[] = eventsData.map((event) => ({
+  const events: EventListItem[] = eventsData.map((event: any) => ({
     id: event.id!,
     schoolId: event.school_id!,
     scopeType: event.scope_type!,
@@ -529,7 +531,7 @@ export async function loadEventsSnapshot(
   }));
 
   const composerScopes = mandatesResponse.data
-    ? buildEventScopes(mandatesResponse.data, classMap, profile.school_id)
+    ? buildEventScopes(mandatesResponse.data as any, classMap, profile.school_id)
     : [];
 
   return { events, composerScopes, remindersAvailable, profileMissing: false };
@@ -537,24 +539,25 @@ export async function loadEventsSnapshot(
 
 export async function loadPollsSnapshot(
   supabase: Supabase,
-  userId: string
+  userId: string,
+  options: SnapshotOptions = {}
 ): Promise<PollsSnapshot> {
   const start = performance.now();
   
-  const profilePromise = supabase
-    .from("profiles")
-    .select("id, school_id")
-    .eq("id", userId)
-    .maybeSingle()
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+  const profilePromise = options.schoolId
+    ? Promise.resolve({ data: { school_id: options.schoolId }, error: null })
+    : supabase
+        .from("profiles")
+        .select("id, school_id")
+        .eq("id", userId)
+        .maybeSingle()
+    
   const mandatesPromise = supabase
     .from("mandates")
     .select("scope_type, scope_id, role, status")
     .eq("user_id", userId)
     .eq("status", "active")
-    .abortSignal(AbortSignal.timeout(2000)); // Increased from 500ms
-
+    
   // Optimized: No JOIN, minimal columns, LIMIT 15
   const pollsPromise = supabase
     .from("polls")
@@ -576,8 +579,7 @@ export async function loadPollsSnapshot(
     )
     .order("created_at", { ascending: false })
     .limit(15)
-    .abortSignal(AbortSignal.timeout(3000)); // Increased from 1000ms
-
+    
   const [profileResult, mandatesResponse, pollsResponse] = await Promise.all([
     profilePromise,
     mandatesPromise,
@@ -605,16 +607,16 @@ export async function loadPollsSnapshot(
   const classIds = Array.from(
     new Set(
       pollsData
-        .filter((poll) => poll.scope_type === "class")
-        .map((poll) => poll.scope_id!)
+        .filter((poll: any) => poll.scope_type === "class")
+        .map((poll: any) => poll.scope_id!)
     )
   );
 
-  const classMap = await fetchClassMap(supabase, classIds);
+  const classMap = await fetchClassMap(supabase, classIds as string[]);
 
   const hasSchoolWideMandate =
     mandatesResponse.data?.some(
-      (mandate) =>
+      (mandate: any) =>
         mandate.scope_type === "school" &&
         (mandate.role === "gev" || mandate.role === "admin") &&
         mandate.status === "active"
@@ -631,7 +633,7 @@ export async function loadPollsSnapshot(
   }
 
   const summaryResults = await Promise.all(
-    pollsData.map(async (poll) => {
+    pollsData.map(async (poll: any) => {
       try {
         const { data, error } = await supabase.rpc("poll_vote_summary", {
           p_poll_id: poll.id,
@@ -657,7 +659,7 @@ export async function loadPollsSnapshot(
     summaryMap.set(pollId, rows);
   }
 
-  const polls: PollListItem[] = pollsData.map((poll) => {
+  const polls: PollListItem[] = pollsData.map((poll: any) => {
     const options = (poll.options as { id: string; label: string }[]) ?? [];
     const summaryRows = summaryMap.get(poll.id!) ?? [];
     const scopeLabel =
@@ -700,7 +702,7 @@ export async function loadPollsSnapshot(
 
   const composerScopes = mandatesResponse.data
     ? buildPollScopes(
-        mandatesResponse.data,
+        mandatesResponse.data as any,
         classMap,
         profileData.school_id,
         hasSchoolWideMandate
@@ -712,15 +714,20 @@ export async function loadPollsSnapshot(
 
 export async function loadHomeSnapshot(
   supabase: Supabase,
-  userId: string
+  userId: string,
+  options: SnapshotOptions = {}
 ): Promise<HomeSnapshot> {
+  const profilePromise = options.schoolId
+    ? Promise.resolve({ data: { school_id: options.schoolId, name: null }, error: null })
+    : supabase
+        .from("profiles")
+        .select("id, school_id, name")
+        .eq("id", userId)
+        .maybeSingle();
+
   const [enrollmentResult, profileResult, mandatesResult] = await Promise.all([
     supabase.from("enrollments").select("id").limit(1).maybeSingle(),
-    supabase
-      .from("profiles")
-      .select("id, school_id, name")
-      .eq("id", userId)
-      .maybeSingle(),
+    profilePromise,
     supabase
       .from("mandates")
       .select("scope_type, scope_id, role")

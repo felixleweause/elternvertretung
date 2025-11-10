@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 
 type RequestPayload = {
   code?: string;
@@ -17,8 +17,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const normalizedCode = code.trim().toUpperCase();
   const trimmedInitials =
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase.rpc("enroll_with_class_code", {
     p_code: normalizedCode,
-    p_child_initials: trimmedInitials,
+    p_child_initials: trimmedInitials || undefined,
   });
 
   if (error) {

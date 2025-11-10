@@ -51,7 +51,7 @@ const BASE_FIELDS = [
 ] as const;
 
 function buildEventSelect(options: { reminders: boolean; agenda: boolean }): string {
-  const fields = [...BASE_FIELDS];
+  const fields: string[] = [...BASE_FIELDS];
 
   if (options.agenda) {
     const locationIndex = fields.indexOf("location");
@@ -89,7 +89,7 @@ export async function fetchEventWithReminderFallback(
 
   if (!initial.error) {
     return {
-      event: initial.data as EventRowData,
+      event: initial.data as unknown as EventRowData,
       remindersAvailable: true,
       agendaAvailable: true,
     };

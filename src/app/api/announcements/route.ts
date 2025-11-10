@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 
 type AnnouncementPayload = {
   title?: string;
@@ -37,8 +37,27 @@ export async function POST(request: Request) {
     );
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Get user's school_id
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.school_id) {
+    return NextResponse.json({ error: "profile_not_found" }, { status: 400 });
+  }
 
   const trimmedTitle = title.trim();
   const trimmedBody = body.trim();
@@ -57,6 +76,8 @@ export async function POST(request: Request) {
       attachments: [],
       allow_comments,
       requires_ack,
+      created_by: user.id,
+      school_id: profile.school_id,
     })
     .select("id")
     .maybeSingle();

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import { normalizePollOptions } from "@/lib/polls/options";
 
 type Params = {
@@ -27,8 +27,8 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: "invalid_choice" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -107,10 +107,10 @@ export async function POST(request: Request, { params }: Params) {
 
   const now = Date.now();
 
-  // Check if user can vote using the new function
-  const { data: canVote } = await supabase.rpc("can_vote_in_poll", {
+  // Check if user can vote using the correct function
+  const { data: canVote } = await supabase.rpc("poll_vote_allowed", {
     p_poll_id: poll.id,
-    p_user_id: user.id,
+    p_voter_id: user.id,
   });
 
   if (!canVote) {
@@ -152,10 +152,10 @@ export async function POST(request: Request, { params }: Params) {
 
   // Check if user already has a vote and update it
   const { data: existingUserVote, error: checkError } = await supabase
-    .from("user_votes")
+    .from("votes")
     .select("choice")
     .eq("poll_id", poll.id)
-    .eq("user_id", user.id)
+    .eq("voter_id", user.id)
     .maybeSingle();
 
   if (checkError) {
@@ -167,17 +167,18 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   const upsertResult = await supabase
-    .from("user_votes")
+    .from("votes")
     .upsert(
       [
         {
           poll_id: poll.id,
-          user_id: user.id,
+          voter_id: user.id,
+          school_id: poll.school_id,
           choice: finalChoice,
         },
       ],
       {
-        onConflict: "poll_id,user_id",
+        onConflict: "poll_id,voter_id",
       }
     )
     .select("choice")

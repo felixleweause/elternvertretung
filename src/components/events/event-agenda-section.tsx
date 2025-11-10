@@ -255,6 +255,16 @@ export function EventAgendaSection({
     setMinutesEntries((entries) => entries.filter((entry) => entry.id !== id));
   };
 
+  const handleMinutesTimestampNow = (id: string) => {
+    setMinutesEntries((entries) =>
+      entries.map((entry) =>
+        entry.id === id
+          ? { ...entry, recordedAt: new Date().toISOString() }
+          : entry
+      )
+    );
+  };
+
   const handleSave = () => {
     if (!canEdit || !hasChanges) {
       return;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import { sanitizeAgendaPayload, sanitizeMinutesPayload } from "@/lib/events/documents";
 import {
   detectMissingColumns,
@@ -25,8 +25,8 @@ export async function PATCH(request: Request, { params }: Params) {
     minutes?: unknown;
   };
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },

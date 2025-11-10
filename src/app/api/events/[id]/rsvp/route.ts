@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 
 const VALID_STATUSES = new Set(["yes", "no", "maybe"]);
 
@@ -22,8 +22,8 @@ export async function POST(
     return NextResponse.json({ error: "invalid_status" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -33,13 +33,25 @@ export async function POST(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  // Get user's school_id
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.school_id) {
+    return NextResponse.json({ error: "profile_not_found" }, { status: 400 });
+  }
+
   const { error } = await supabase
     .from("rsvps")
     .upsert(
       {
         event_id: id,
         user_id: user.id,
-        status,
+        status: status as "yes" | "no" | "maybe",
+        school_id: profile.school_id,
         responded_at: new Date().toISOString(),
       },
       {

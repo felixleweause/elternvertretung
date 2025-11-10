@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import {
   fetchEventWithReminderFallback,
   type EventRowData,
@@ -20,8 +20,8 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },

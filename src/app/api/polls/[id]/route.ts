@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import { assignMandatesFromPoll } from "@/lib/polls/mandates";
 import type { CandidateAssignment } from "@/lib/polls/mandates";
 import type { Database } from "@/lib/supabase/database";
@@ -29,8 +29,8 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "invalid_status" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { getServerSupabase } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -19,12 +18,22 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await getServerSupabase();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       console.error("Supabase exchangeCodeForSession error:", error.message);
+      
+      // If it's a PKCE error, try to get the user directly
+      if (error.message.includes("code verifier")) {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (user && !userError) {
+          // User exists, proceed with redirect
+          const redirectPath = next && next.startsWith("/") ? next : "/app";
+          return NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
+        }
+      }
+      
       const redirectUrl = new URL("/login", requestUrl.origin);
       redirectUrl.searchParams.set("error", "magic-link");
       return NextResponse.redirect(redirectUrl);

@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { getServerSupabase } from "@/lib/supabase/server";
+import { cacheTags } from "@/lib/cache/tags";
 
 type ActionState = {
   status: "idle" | "success" | "error";
@@ -33,8 +33,8 @@ export async function createAnnouncementAction(
     };
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -42,6 +42,17 @@ export async function createAnnouncementAction(
 
   if (!user) {
     return { status: "error", message: "Du bist nicht angemeldet." };
+  }
+
+  // Get user's school_id
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.school_id) {
+    return { status: "error", message: "Benutzerprofil nicht gefunden." };
   }
 
   const { error } = await supabase
@@ -54,6 +65,8 @@ export async function createAnnouncementAction(
       attachments: [],
       allow_comments: allowComments,
       requires_ack: requiresAck,
+      created_by: user.id,
+      school_id: profile.school_id,
     })
     .select("id")
     .maybeSingle();
@@ -67,7 +80,7 @@ export async function createAnnouncementAction(
   }
 
   revalidatePath("/app/announcements");
-  revalidateTag("announcements");
+  revalidateTag(cacheTags.announcements(profile.school_id), 'max');
 
   return {
     status: "success",

@@ -1,10 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  useSupabaseClient,
-  useUser,
-} from "@supabase/auth-helpers-react";
+import { useSupabase } from "@/components/providers/supabase-provider";
 import type { Database } from "@/lib/supabase/database";
 import {
   announcementsKeys,
@@ -25,8 +22,7 @@ import {
 } from "@/lib/react-query/query-functions";
 
 export function useAnnouncementsQuery(schoolId: string) {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery<AnnouncementsSnapshot>({
     queryKey: announcementsKeys.all(schoolId),
@@ -34,19 +30,21 @@ export function useAnnouncementsQuery(schoolId: string) {
       if (!user) {
         throw new Error("auth_required");
       }
-      return loadAnnouncementsSnapshot(supabase, user.id);
+      return loadAnnouncementsSnapshot(supabase as any, user.id, { schoolId });
     },
     enabled: Boolean(user && schoolId),
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    networkMode: 'always',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    networkMode: 'offlineFirst', // Use cached data first, then network
     placeholderData: (previousData) => previousData, // Keep previous data while loading
+    refetchOnMount: false, // Don't refetch on mount if data is fresh
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: true, // Only refetch on reconnect
   });
 }
 
 export function useEventsQuery(schoolId: string) {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery<EventsSnapshot>({
     queryKey: eventsKeys.all(schoolId),
@@ -54,19 +52,21 @@ export function useEventsQuery(schoolId: string) {
       if (!user) {
         throw new Error("auth_required");
       }
-      return loadEventsSnapshot(supabase, user.id);
+      return loadEventsSnapshot(supabase as any, user.id, { schoolId });
     },
     enabled: Boolean(user && schoolId),
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    networkMode: 'always',
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    networkMode: 'offlineFirst', // Use cached data first, then network
     placeholderData: (previousData) => previousData,
+    refetchOnMount: false, // Don't refetch on mount if data is fresh
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: true, // Only refetch on reconnect
   });
 }
 
 export function usePollsQuery(schoolId: string) {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery<PollsSnapshot>({
     queryKey: pollsKeys.all(schoolId),
@@ -74,19 +74,21 @@ export function usePollsQuery(schoolId: string) {
       if (!user) {
         throw new Error("auth_required");
       }
-      return loadPollsSnapshot(supabase, user.id);
+      return loadPollsSnapshot(supabase as any, user.id, { schoolId });
     },
     enabled: Boolean(user && schoolId),
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    networkMode: 'always',
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    networkMode: 'offlineFirst', // Use cached data first, then network
     placeholderData: (previousData) => previousData,
+    refetchOnMount: false, // Don't refetch on mount if data is fresh
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: true, // Only refetch on reconnect
   });
 }
 
 export function useHomeQuery(schoolId: string) {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery<HomeSnapshot>({
     queryKey: homeKeys.overview(schoolId),
@@ -94,20 +96,22 @@ export function useHomeQuery(schoolId: string) {
       if (!user) {
         throw new Error("auth_required");
       }
-      return loadHomeSnapshot(supabase, user.id);
+      return loadHomeSnapshot(supabase as any, user.id, { schoolId });
     },
     enabled: Boolean(user && schoolId),
-    staleTime: 5 * 60 * 1000, // 5 minutes - longer to respect bootstrap data
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    networkMode: 'always',
+    staleTime: 10 * 60 * 1000,
+    gcTime: 45 * 60 * 1000,
+    networkMode: 'offlineFirst', // Use cached data first, then network
     placeholderData: (previousData) => previousData,
+    refetchOnMount: false, // Don't refetch on mount if data is fresh
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: true, // Only refetch on reconnect
   });
 }
 
 // User data hooks
 export function useMeQuery() {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery({
     queryKey: userKeys.me,
@@ -125,14 +129,13 @@ export function useMeQuery() {
       return data;
     },
     enabled: Boolean(user),
-    staleTime: 10 * 60 * 1000, // 10 minutes - respect bootstrap data
-    gcTime: 15 * 60 * 1000, // 15 minutes
+    staleTime: 15 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 
 export function useRolesQuery(schoolId: string) {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery<string[]>({
     queryKey: userKeys.roles(schoolId),
@@ -147,17 +150,16 @@ export function useRolesQuery(schoolId: string) {
         .eq("status", "active");
       
       if (error) throw error;
-      return (data ?? []).map(m => m.role).filter(Boolean);
+      return (data ?? []).map((m: any) => m.role).filter(Boolean);
     },
     enabled: Boolean(user && schoolId),
-    staleTime: 5 * 60 * 1000, // 5 minutes - respect bootstrap data
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
+    gcTime: 45 * 60 * 1000,
   });
 }
 
 export function useScopesQuery(schoolId: string) {
-  const supabase = useSupabaseClient<Database>();
-  const user = useUser();
+  const { supabase, user } = useSupabase();
 
   return useQuery({
     queryKey: userKeys.scopes(schoolId),
@@ -174,16 +176,16 @@ export function useScopesQuery(schoolId: string) {
       if (error) throw error;
       
       const mandates = data ?? [];
-      const schoolScopes = mandates.filter(m => m.scope_type === "school");
-      const classScopes = mandates.filter(m => m.scope_type === "class");
+      const schoolScopes = mandates.filter((m: any) => m.scope_type === "school");
+      const classScopes = mandates.filter((m: any) => m.scope_type === "class");
 
       return {
         school: schoolScopes.length > 0,
-        classes: classScopes.map(m => m.scope_id).filter(Boolean) as string[],
+        classes: classScopes.map((m: any) => m.scope_id).filter(Boolean) as string[],
       };
     },
     enabled: Boolean(user && schoolId),
-    staleTime: 5 * 60 * 1000, // 5 minutes - respect bootstrap data
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
+    gcTime: 45 * 60 * 1000,
   });
 }

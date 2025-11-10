@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 
 type Params = {
   params: Promise<{
@@ -14,8 +14,8 @@ export async function POST(_request: Request, context: Params) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const { data, error } = await supabase.rpc("mark_announcement_read", {
     p_announcement_id: id,

@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { getServerSupabase } from "@/lib/supabase/server";
 import {
   isReminderColumnMissing,
   logReminderColumnWarning,
 } from "@/lib/supabase/reminder-support";
+import { cacheTags } from "@/lib/cache/tags";
 
 type ActionState = {
   status: "idle" | "success" | "error";
@@ -69,8 +69,8 @@ export async function createEventAction(
     };
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -136,7 +136,7 @@ export async function createEventAction(
   }
 
   revalidatePath("/app/events");
-  revalidateTag("events");
+  revalidateTag(cacheTags.events(profile.school_id), 'max');
 
   return {
     status: "success",

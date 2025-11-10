@@ -2,11 +2,15 @@
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database";
 
 type RealtimeEvent = "INSERT" | "UPDATE" | "DELETE";
+
+type RealtimePayload = RealtimePostgresChangesPayload<{
+  [key: string]: any;
+}>;
 
 type UseRealtimeInvalidationProps = {
   table: keyof Database["public"]["Tables"];
@@ -27,7 +31,7 @@ export function useRealtimeInvalidation({
   schoolId,
 }: UseRealtimeInvalidationProps) {
   const queryClient = useQueryClient();
-  const supabase = useSupabaseClient<Database>();
+  const { supabase } = useSupabase();
 
   useEffect(() => {
     if (!schoolId) return;
@@ -35,7 +39,7 @@ export function useRealtimeInvalidation({
     let channel: RealtimeChannel | null = null;
 
     const setupRealtime = () => {
-      const channelName = `${table}_changes_${schoolId}`;
+      const channelName = `${String(table)}_changes_${schoolId}`;
       
       channel = supabase
         .channel(channelName)
@@ -49,10 +53,10 @@ export function useRealtimeInvalidation({
               ? `${filter.column}=eq.${filter.value}`
               : undefined,
           },
-          (payload) => {
+          (payload: RealtimePayload) => {
             // Only invalidate if the event type matches our configured events
             if (events.includes(payload.eventType as RealtimeEvent)) {
-              console.log(`Realtime ${payload.eventType} on ${table}:`, payload);
+              console.log(`Realtime ${payload.eventType} on ${String(table)}:`, payload);
               
               // Invalidate the specific query key
               queryClient.invalidateQueries({
@@ -69,11 +73,11 @@ export function useRealtimeInvalidation({
             }
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: "SUBSCRIBED" | "TIMED_OUT" | "CLOSED" | "CHANNEL_ERROR") => {
           if (status === "SUBSCRIBED") {
-            console.log(`Realtime subscription active for ${table}`);
+            console.log(`Realtime subscription active for ${String(table)}`);
           } else if (status === "TIMED_OUT" || status === "CLOSED") {
-            console.warn(`Realtime subscription for ${table} ended:`, status);
+            console.warn(`Realtime subscription for ${String(table)} ended:`, status);
           }
         });
     };

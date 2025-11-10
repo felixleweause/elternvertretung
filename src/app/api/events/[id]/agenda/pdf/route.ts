@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { PDFDocument, StandardFonts } from "pdf-lib";
+
+import { getServerSupabase } from "@/lib/supabase/server";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import {
   normalizeAgendaDocument,
   normalizeMinutesDocument,
@@ -26,8 +26,8 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -104,7 +104,7 @@ export async function GET(request: Request, { params }: Params) {
             y: cursorY,
             size: options.size,
             font: options.font,
-            color: options.color,
+            color: options.color ? rgb(options.color.r, options.color.g, options.color.b) : undefined,
           });
           cursorY -= LINE_HEIGHT;
           line = word;
@@ -123,7 +123,7 @@ export async function GET(request: Request, { params }: Params) {
           y: cursorY,
           size: options.size,
           font: options.font,
-          color: options.color,
+          color: options.color ? rgb(options.color.r, options.color.g, options.color.b) : undefined,
         });
         cursorY -= LINE_HEIGHT;
       }
@@ -286,7 +286,7 @@ export async function GET(request: Request, { params }: Params) {
   const arrayBuffer = pdfArray.buffer.slice(
     pdfArray.byteOffset,
     pdfArray.byteOffset + pdfArray.byteLength
-  );
+  ) as ArrayBuffer;
 
   const storagePath = `events/${id}/protokoll-${Date.now()}.pdf`;
   const uploadResult = await supabase.storage.from("docs").upload(storagePath, arrayBuffer, {
@@ -315,7 +315,7 @@ export async function GET(request: Request, { params }: Params) {
     console.warn("Failed to append audit log for agenda pdf", auditInsert.error);
   }
 
-  return new NextResponse(pdfBytes, {
+  return new NextResponse(Buffer.from(pdfBytes), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",

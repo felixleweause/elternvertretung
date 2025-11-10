@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import { normalizePollOptions } from "@/lib/polls/options";
 
 type PollPayload = {
@@ -88,8 +88,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "not_enough_options" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -114,11 +114,11 @@ export async function POST(request: Request) {
 
   const insertPayload = {
     school_id: profile.school_id,
-    scope_type,
+    scope_type: scope_type as "class" | "school",
     scope_id,
     title: trimmedTitle,
     description: typeof description === "string" ? description.trim() || null : null,
-    type,
+    type: type as "open" | "secret",
     status: "open" as const,
     deadline: parsedDeadline,
     quorum: parsedQuorum,

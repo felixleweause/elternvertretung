@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { 
   createCandidateRecords,
   dedupeCandidates,
   listCandidateRecords,
@@ -50,7 +51,16 @@ function sanitizeOffice(value: unknown): "class_rep" | "class_rep_deputy" | null
 async function fetchPoll(
   supabase: Supabase,
   pollId: string
-): Promise<Database["public"]["Tables"]["polls"]["Row"] | null> {
+): Promise<{
+  id: string;
+  school_id: string;
+  scope_type: "class" | "school";
+  scope_id: string;
+  kind: "general" | "election";
+  mandate_rule: string | null;
+  options: any;
+  seats: number;
+} | null> {
   const { data, error } = await supabase
     .from("polls")
     .select(
@@ -125,8 +135,8 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -269,8 +279,8 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },

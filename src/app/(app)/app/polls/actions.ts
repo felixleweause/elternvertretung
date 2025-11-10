@@ -1,15 +1,14 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { getServerSupabase } from "@/lib/supabase/server";
+import { cacheTags } from "@/lib/cache/tags";
 import {
   createCandidateRecords,
   dedupeCandidates,
   listCandidateRecords,
   type CandidateDraft,
 } from "@/lib/polls/candidate-service";
-import type { Database } from "@/lib/supabase/database";
 
 type GeneratedCandidateCode = {
   id: string;
@@ -77,7 +76,7 @@ export async function createPollAction(
   const rawKind = ensureString(formData.get("kind"));
   const kind: "general" | "election" = rawKind === "election" ? "election" : "general";
   const officeInput = ensureString(formData.get("office"));
-  const type = ensureString(formData.get("type")) === "secret" ? "secret" : "open";
+  const type: "open" | "secret" = ensureString(formData.get("type")) === "secret" ? "secret" : "open";
   const allowAbstain = ensureString(formData.get("allow_abstain")) === "true";
   const deadlineRaw = ensureString(formData.get("deadline"));
   const quorumRaw = ensureString(formData.get("quorum"));
@@ -196,8 +195,8 @@ export async function createPollAction(
     quorum = Math.round(value);
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerActionClient<Database>({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
@@ -329,7 +328,7 @@ export async function createPollAction(
     } catch (candidateError) {
       console.error("Failed to generate candidate codes", candidateError);
       revalidatePath("/app/polls");
-      revalidateTag("polls");
+      revalidateTag(cacheTags.polls(profile.school_id), 'max');
       return {
         status: "error",
         message: "Die Wahl wurde angelegt, aber die Kandidaten-Codes konnten nicht erzeugt werden.",
@@ -340,7 +339,7 @@ export async function createPollAction(
   }
 
   revalidatePath("/app/polls");
-  revalidateTag("polls");
+  revalidateTag(cacheTags.polls(profile.school_id), 'max');
 
   const successMessage =
     kind === "election"

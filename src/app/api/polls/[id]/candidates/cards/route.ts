@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+
+import { getServerSupabase } from "@/lib/supabase/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { listCandidateRecords } from "@/lib/polls/candidate-service";
-import type { Database } from "@/lib/supabase/database";
 
 type Params = {
   params: Promise<{
@@ -11,7 +10,7 @@ type Params = {
   }>;
 };
 
-async function ensureManageAccess(supabase: ReturnType<typeof createRouteHandlerClient<Database>>, pollId: string) {
+async function ensureManageAccess(supabase: Awaited<ReturnType<typeof getServerSupabase>>, pollId: string) {
   const { data, error } = await supabase.rpc("can_manage_poll", { p_poll_id: pollId });
   if (error) {
     console.error("can_manage_poll failed", error);
@@ -26,8 +25,8 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore });
+  // Using getServerSupabase() instead
+  const supabase = await getServerSupabase();
 
   const {
     data: { user },
