@@ -1,25 +1,45 @@
 "use client";
 
 import { Menu, ShieldCheck, LogOut } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import { AppNavLink } from "@/components/app/app-nav-link";
+import { useSupabase } from "@/components/providers/supabase-provider";
+import {
+  loadAnnouncementsSnapshot,
+  loadEventsSnapshot,
+  loadHomeSnapshot,
+  loadPollsSnapshot,
+} from "@/lib/react-query/query-functions";
+import {
+  announcementsKeys,
+  eventsKeys,
+  homeKeys,
+  pollsKeys,
+} from "@/lib/react-query/query-keys";
+import type { Database } from "@/lib/supabase/database";
 
 type AppShellProps = {
   user: User;
+  schoolId: string | null;
   children: React.ReactNode;
 };
 
-export function AppShell({ user, children }: AppShellProps) {
+export function AppShell({ user, schoolId, children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { supabase, user: contextUser } = useSupabase();
+  const effectiveUserId = contextUser?.id ?? user.id;
+  const effectiveUser = contextUser ?? user;
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
@@ -45,6 +65,68 @@ export function AppShell({ user, children }: AppShellProps) {
     return pathname.startsWith(href);
   };
 
+  const prefetchers = useMemo(
+    () => {
+      if (!supabase || !schoolId || !effectiveUserId) {
+        return {
+          home: undefined,
+          announcements: undefined,
+          events: undefined,
+          polls: undefined,
+        } as const;
+      }
+
+      const client: SupabaseClient<Database> = supabase;
+
+      return {
+        home: () =>
+          queryClient.prefetchQuery({
+            queryKey: homeKeys.overview(schoolId),
+            queryFn: () => {
+              console.log(`📦 Loading home data for school: ${schoolId}`);
+              return loadHomeSnapshot(client, effectiveUserId, { schoolId });
+            },
+          }),
+        announcements: () =>
+          queryClient.prefetchQuery({
+            queryKey: announcementsKeys.all(schoolId),
+            queryFn: () => {
+              console.log(`📦 Loading announcements data for school: ${schoolId}`);
+              return loadAnnouncementsSnapshot(client, effectiveUserId, { schoolId });
+            },
+          }),
+        events: () =>
+          queryClient.prefetchQuery({
+            queryKey: eventsKeys.all(schoolId),
+            queryFn: () => {
+              console.log(`📦 Loading events data for school: ${schoolId}`);
+              return loadEventsSnapshot(client, effectiveUserId, { schoolId });
+            },
+          }),
+        polls: () =>
+          queryClient.prefetchQuery({
+            queryKey: pollsKeys.all(schoolId),
+            queryFn: () => {
+              console.log(`📦 Loading polls data for school: ${schoolId}`);
+              return loadPollsSnapshot(client, effectiveUserId, { schoolId });
+            },
+          }),
+      } as const;
+    },
+    [supabase, schoolId, effectiveUserId, queryClient]
+  );
+
+  const navItems = [
+    { href: "/app", label: "Übersicht", onPrefetch: prefetchers.home },
+    {
+      href: "/app/announcements",
+      label: "Ankündigungen",
+      onPrefetch: prefetchers.announcements,
+    },
+    { href: "/app/events", label: "Termine", onPrefetch: prefetchers.events },
+    { href: "/app/polls", label: "Umfragen", onPrefetch: prefetchers.polls },
+  ] as const;
+
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
       <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -66,61 +148,28 @@ export function AppShell({ user, children }: AppShellProps) {
             Elternvertretung
           </div>
           <nav className="ml-4 hidden items-center gap-2 text-sm font-medium text-zinc-500 md:flex">
-            <Link
-              href="/app"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-600 dark:text-zinc-400"
-              )}
-            >
-              Übersicht
-            </Link>
-            <Link
-              href="/app/announcements"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app/announcements")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-600 dark:text-zinc-400"
-              )}
-            >
-              Ankündigungen
-            </Link>
-            <Link
-              href="/app/events"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app/events")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-600 dark:text-zinc-400"
-              )}
-            >
-              Termine
-            </Link>
-            <Link
-              href="/app/polls"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app/polls")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-600 dark:text-zinc-400"
-              )}
-            >
-              Umfragen
-            </Link>
+            {navItems.map((item) => (
+              <AppNavLink
+                key={item.href}
+                href={item.href}
+                onPrefetch={item.onPrefetch}
+                className={cn(
+                  "rounded-md px-3 py-1 transition hover:text-zinc-900 dark:hover:text-zinc-100",
+                  isActive(item.href)
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-zinc-600 dark:text-zinc-400"
+                )}
+              >
+                {item.label}
+              </AppNavLink>
+            ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
             <div className="hidden md:flex flex-col items-end">
               <span className="font-medium text-zinc-900 dark:text-zinc-50">
-                {user.user_metadata?.name ?? user.email ?? "Account"}
+                {effectiveUser.user_metadata?.name ?? effectiveUser.email ?? "Account"}
               </span>
-              <span className="text-xs">{user.email}</span>
+              <span className="text-xs">{effectiveUser.email}</span>
             </div>
             <ThemeToggle className="text-zinc-500 dark:text-zinc-400" />
         <Button
@@ -139,54 +188,21 @@ export function AppShell({ user, children }: AppShellProps) {
             id="app-mobile-nav"
             className="flex flex-col gap-1 border-t border-zinc-200 bg-white px-6 py-3 text-sm font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 md:hidden"
           >
-            <Link
-              href="/app"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-transparent"
-              )}
-            >
-              Übersicht
-            </Link>
-            <Link
-              href="/app/announcements"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app/announcements")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-transparent"
-              )}
-            >
-              Ankündigungen
-            </Link>
-            <Link
-              href="/app/events"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app/events")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-transparent"
-              )}
-            >
-              Termine
-            </Link>
-            <Link
-              href="/app/polls"
-              prefetch
-              className={cn(
-                "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
-                isActive("/app/polls")
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-transparent"
-              )}
-            >
-              Umfragen
-            </Link>
+            {navItems.map((item) => (
+              <AppNavLink
+                key={`${item.href}-mobile`}
+                href={item.href}
+                onPrefetch={item.onPrefetch}
+                className={cn(
+                  "rounded-md px-3 py-2 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
+                  isActive(item.href)
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "bg-transparent"
+                )}
+              >
+                {item.label}
+              </AppNavLink>
+            ))}
           </nav>
         ) : null}
       </header>
